@@ -1,18 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { chats } from '@/lib/mock-data';
 import { ChatListItem } from './chat-list-item';
-import { Search, Camera, MoreHorizontal, Plus } from 'lucide-react';
+import { Search, Camera, MoreHorizontal, Plus, Users, Globe, Tag, Smartphone, Settings } from 'lucide-react';
 
 interface ChatListProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
 }
 
+const menuItems = [
+  { icon: Users, label: 'New Group' },
+  { icon: Globe, label: 'Communities' },
+  { icon: Tag, label: 'Labels' },
+  { icon: Smartphone, label: 'Linked devices' },
+  { icon: Settings, label: 'Settings' },
+];
+
 export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
 
   const filteredChats = chats.filter((chat) => {
     const name = chat.type === 'group' 
@@ -38,13 +60,66 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
             >
               <Camera className="h-5 w-5" />
             </button>
-            <button 
-              type="button"
-              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label="More options"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
+            <div className="relative" ref={menuRef}>
+              <button 
+                type="button"
+                className={cn(
+                  "glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground",
+                  isMenuOpen && "text-foreground"
+                )}
+                aria-label="More options"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+
+              {/* Liquid Glass Dropdown Menu - Green Accent */}
+              <div
+                className={cn(
+                  "absolute right-0 top-full mt-2 w-52 py-2 rounded-2xl z-50",
+                  "origin-top-right transition-all duration-300 ease-out",
+                  isMenuOpen 
+                    ? "opacity-100 scale-100 translate-y-0" 
+                    : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                )}
+                style={{
+                  background: 'linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(240,253,244,0.7) 50%, rgba(255,255,255,0.8) 100%)',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  border: '1px solid rgba(134,239,172,0.3)',
+                  boxShadow: `
+                    0 16px 48px rgba(22,163,74,0.1),
+                    0 4px 16px rgba(0,0,0,0.08),
+                    inset 0 1px 0 rgba(255,255,255,0.8),
+                    inset 0 -1px 0 rgba(187,247,208,0.3)
+                  `,
+                }}
+              >
+                {/* Top highlight for glass refraction */}
+                <span 
+                  className="absolute top-2 left-4 right-4 h-px pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, rgba(187,247,208,0.8), transparent)',
+                  }}
+                />
+                
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground/90",
+                      "hover:bg-green-50/60 dark:hover:bg-green-900/20 transition-colors duration-200",
+                      "active:bg-green-100/60 dark:active:bg-green-900/30"
+                    )}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <item.icon className="h-5 w-5 text-primary" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -107,19 +182,52 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
         )}
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Green Glass Droplet */}
       <button
         type="button"
         className={cn(
           'absolute bottom-24 right-4 w-14 h-14 rounded-full',
-          'bg-primary text-primary-foreground',
-          'shadow-lg shadow-primary/30',
           'flex items-center justify-center',
-          'transition-all duration-300 hover:scale-110 active:scale-95'
+          'transition-all duration-300 hover:scale-110 active:scale-95',
+          'group overflow-hidden'
         )}
+        style={{
+          background: 'linear-gradient(135deg, rgba(34,197,94,0.85) 0%, rgba(22,163,74,0.9) 50%, rgba(21,128,61,0.95) 100%)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.3)',
+          boxShadow: `
+            0 8px 32px rgba(22,163,74,0.3),
+            0 2px 8px rgba(0,0,0,0.15),
+            inset 0 -4px 12px rgba(21,128,61,0.3),
+            inset 0 4px 12px rgba(134,239,172,0.4),
+            inset 2px 2px 4px rgba(255,255,255,0.3)
+          `,
+        }}
         aria-label="New chat"
       >
-        <Plus className="h-6 w-6" />
+        {/* Refraction highlight - top left */}
+        <span 
+          className="absolute top-1.5 left-2 w-4 h-2 rounded-full opacity-90 pointer-events-none"
+          style={{
+            background: 'linear-gradient(135deg, rgba(187,247,208,0.9) 0%, rgba(134,239,172,0) 100%)',
+          }}
+        />
+        {/* Secondary highlight - bottom curve */}
+        <span 
+          className="absolute bottom-2 right-2 w-6 h-3 rounded-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(187,247,208,0.6) 0%, transparent 70%)',
+          }}
+        />
+        {/* Caustic light effect */}
+        <span 
+          className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35) 0%, transparent 50%)',
+          }}
+        />
+        <Plus className="h-6 w-6 text-white relative z-10 drop-shadow-sm" />
       </button>
     </div>
   );
