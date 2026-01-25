@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   name: string;
+  email?: string;
   avatar: string;
   status: 'online' | 'offline' | 'away';
   lastSeen?: Date;
@@ -14,6 +15,7 @@ export interface Message {
   timestamp: Date;
   status: 'sending' | 'sent' | 'delivered' | 'read';
   type: 'text' | 'image' | 'voice' | 'location' | 'document';
+  expiresAt?: Date;
   replyTo?: string;
   reactions?: { emoji: string; userId: string }[];
 }

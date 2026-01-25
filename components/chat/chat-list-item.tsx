@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import type { Chat } from '@/lib/types';
 import { formatDistanceToNow } from '@/lib/format';
+import { useSettings } from '@/components/settings-provider';
 import { Check, CheckCheck, Pin, VolumeX } from 'lucide-react';
 
 interface ChatListItemProps {
@@ -12,16 +13,20 @@ interface ChatListItemProps {
 }
 
 export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
+  const { settings } = useSettings();
   const participant = chat.participants[0];
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
+  const isBlocked = !isGroup && settings.privacy.blockedUserIds.includes(participant.id);
 
   const getStatusIcon = () => {
     if (!chat.lastMessage || chat.lastMessage.senderId !== 'current-user') return null;
     
     switch (chat.lastMessage.status) {
       case 'read':
-        return <CheckCheck className="h-4 w-4 text-primary" />;
+        return settings.privacy.readReceipts
+          ? <CheckCheck className="h-4 w-4 text-primary" />
+          : <CheckCheck className="h-4 w-4 text-muted-foreground" />;
       case 'delivered':
         return <CheckCheck className="h-4 w-4 text-muted-foreground" />;
       case 'sent':
@@ -96,7 +101,7 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
               'text-sm truncate',
               chat.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
             )}>
-              {chat.lastMessage?.content || 'No messages yet'}
+              {isBlocked ? 'Blocked' : (chat.lastMessage?.content || 'No messages yet')}
             </p>
           </div>
           

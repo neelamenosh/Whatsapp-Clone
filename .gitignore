@@ -7,6 +7,9 @@
 /.next/
 /out/
 
+# local dev data
+/.data/
+
 # production
 /build
 

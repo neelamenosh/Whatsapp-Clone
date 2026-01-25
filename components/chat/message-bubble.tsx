@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
 import { formatTime } from '@/lib/format';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Timer } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -60,6 +60,15 @@ export function MessageBubble({ message, isOwn, showTimestamp = true }: MessageB
             <span className="text-[11px]">
               {formatTime(message.timestamp)}
             </span>
+            {message.expiresAt && (
+              <Timer
+                className={cn(
+                  'h-3.5 w-3.5',
+                  isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                )}
+                aria-label="Disappearing message"
+              />
+            )}
             {getStatusIcon()}
           </div>
         )}

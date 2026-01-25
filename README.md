@@ -28,3 +28,15 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## Realtime + Sync (local dev)
+
+This repo includes a small development WebSocket server for realtime message delivery plus a file-backed message store used by the `/api/messages/[chatId]` route.
+
+- Start everything: `pnpm dev` (runs Next.js + the WS server)
+- WS server: `ws://localhost:3001`
+- REST history sync: `GET/POST /api/messages/:chatId`
+
+Notes:
+- The server message store is saved to `.data/messages.json` (ignored by git).
+- For production hosting (e.g. Vercel), you typically need a dedicated WebSocket host or a managed realtime provider.

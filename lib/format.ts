@@ -1,6 +1,7 @@
-export function formatDistanceToNow(date: Date): string {
+export function formatDistanceToNow(date: Date | string): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
   const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
   
   if (diffInSeconds < 60) {
     return 'now';
@@ -21,11 +22,12 @@ export function formatDistanceToNow(date: Date): string {
     return `${diffInDays}d`;
   }
   
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', { 
+export function formatTime(date: Date | string): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return dateObj.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit',
     hour12: true 
@@ -45,9 +47,10 @@ export function formatDuration(seconds: number): string {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-export function formatLastSeen(date: Date): string {
+export function formatLastSeen(date: Date | string): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
   const now = new Date();
-  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  const diffInHours = Math.floor((now.getTime() - dateObj.getTime()) / (1000 * 60 * 60));
   
   if (diffInHours < 1) {
     return 'last seen recently';
@@ -57,5 +60,5 @@ export function formatLastSeen(date: Date): string {
     return `last seen ${diffInHours}h ago`;
   }
   
-  return `last seen ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  return `last seen ${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 }

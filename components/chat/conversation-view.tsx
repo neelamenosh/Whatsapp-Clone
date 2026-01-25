@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Chat, Message } from '@/lib/types';
-import { getMessages, currentUser } from '@/lib/mock-data';
+import { currentUser } from '@/lib/mock-data';
+import { getCurrentUser } from '@/lib/user-store';
 import { formatLastSeen } from '@/lib/format';
+import { useSettings } from '@/components/settings-provider';
+import { Virtuoso } from 'react-virtuoso';
+import { getLiveChatService } from '@/lib/live-chat';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { 
@@ -28,50 +32,156 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isOnline, setIsOnline] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { settings } = useSettings();
+  
+  const loggedInUser = getCurrentUser();
   const participant = chat.participants[0];
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
+  const isBlocked = !isGroup && settings.privacy.blockedUserIds.includes(participant.id);
 
+  // Load messages from localStorage on mount
   useEffect(() => {
-    setMessages(getMessages(chat.id));
-    // Simulate typing indicator
-    const typingTimeout = setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 3000);
-    }, 2000);
-    return () => clearTimeout(typingTimeout);
+    const liveChatService = getLiveChatService();
+    const storedMessages = liveChatService.getMessages(chat.id);
+    setMessages(storedMessages);
+    
+    // Check if participant is online
+    setIsOnline(liveChatService.isUserOnline(participant.id));
+  }, [chat.id, participant.id]);
+
+  // Listen for incoming messages
+  useEffect(() => {
+    const liveChatService = getLiveChatService();
+    
+    const unsubMessage = liveChatService.onMessage((chatId, message) => {
+      if (chatId !== chat.id) return;
+      
+      setMessages((prev) => {
+        // Check for duplicates
+        if (prev.some(m => m.id === message.id)) {
+          return prev;
+        }
+        return [...prev, message];
+      });
+    });
+
+    return () => {
+      unsubMessage();
+    };
   }, [chat.id]);
 
+  // Listen for typing indicator
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+    const liveChatService = getLiveChatService();
+    
+    const unsubTyping = liveChatService.onTyping((chatId, userId, typing) => {
+      if (chatId !== chat.id) return;
+      if (userId === participant.id) {
+        setIsTyping(typing);
+      }
+    });
+
+    return () => {
+      unsubTyping();
+    };
+  }, [chat.id, participant.id]);
+
+  // Listen for online status changes
+  useEffect(() => {
+    const liveChatService = getLiveChatService();
+    
+    const unsubOnline = liveChatService.onOnlineStatus((userId, online) => {
+      if (userId === participant.id) {
+        setIsOnline(online);
+      }
+    });
+
+    // Periodically check online status
+    const interval = setInterval(() => {
+      setIsOnline(liveChatService.isUserOnline(participant.id));
+    }, 5000);
+
+    return () => {
+      unsubOnline();
+      clearInterval(interval);
+    };
+  }, [participant.id]);
+
+  // Handle typing indicator emission
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+    
+    const liveChatService = getLiveChatService();
+    liveChatService.sendTyping(chat.id, true);
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Stop typing indicator after 2 seconds of no input
+    typingTimeoutRef.current = setTimeout(() => {
+      liveChatService.sendTyping(chat.id, false);
+    }, 2000);
+  }, [chat.id]);
+
+  const listData = messages;
 
   const handleSend = () => {
+    if (isBlocked) return;
     if (!inputValue.trim()) return;
+    if (!loggedInUser) return;
+
+    const ttlSeconds = settings.privacy.disappearingMessagesSeconds;
+    const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : undefined;
+
+    // Generate client-side ID
+    const messageId = `m-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     const newMessage: Message = {
-      id: `m-${Date.now()}`,
-      senderId: currentUser.id,
+      id: messageId,
+      senderId: loggedInUser.id,
       content: inputValue,
       timestamp: new Date(),
       status: 'sending',
       type: 'text',
+      expiresAt,
     };
 
+    // Check if this is the first message (new chat for recipient)
+    const isFirstMessage = messages.length === 0;
+
+    // Add to local state immediately
     setMessages((prev) => [...prev, newMessage]);
     setInputValue('');
+    
+    // Stop typing indicator
+    const liveChatService = getLiveChatService();
+    liveChatService.sendTyping(chat.id, false);
+    
+    // Send via live chat service (broadcasts to other tabs/windows)
+    liveChatService.sendMessage(chat.id, newMessage);
 
-    // Simulate message status updates
+    // If first message, notify recipient about new chat
+    if (isFirstMessage && !isGroup) {
+      liveChatService.notifyNewChat(
+        { ...chat, lastMessage: newMessage },
+        participant.id
+      );
+    }
+
+    // Update message status
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === newMessage.id ? { ...m, status: 'sent' } : m
         )
       );
-    }, 500);
+    }, 300);
 
     setTimeout(() => {
       setMessages((prev) =>
@@ -79,22 +189,27 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
           m.id === newMessage.id ? { ...m, status: 'delivered' } : m
         )
       );
-    }, 1000);
+    }, 800);
 
     setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === newMessage.id ? { ...m, status: 'read' } : m
-        )
-      );
-    }, 2000);
+      if (settings.privacy.readReceipts) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMessage.id ? { ...m, status: 'read' } : m
+          )
+        );
+      }
+    }, 1500);
   };
 
   const getStatusText = () => {
     if (isGroup) {
       return `${chat.participants.length} members`;
     }
-    if (participant.status === 'online') {
+    if (isBlocked) {
+      return 'blocked';
+    }
+    if (isOnline) {
       return 'online';
     }
     if (participant.lastSeen) {
@@ -126,7 +241,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
                 crossOrigin="anonymous"
               />
             </div>
-            {participant.status === 'online' && !isGroup && (
+            {isOnline && !isGroup && (
               <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background" />
             )}
           </div>
@@ -135,7 +250,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
             <h2 className="font-semibold text-foreground truncate">{displayName}</h2>
             <p className={cn(
               'text-xs',
-              participant.status === 'online' ? 'text-online' : 'text-muted-foreground'
+              isOnline ? 'text-online' : 'text-muted-foreground'
             )}>
               {getStatusText()}
             </p>
@@ -168,25 +283,42 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide">
-        {/* Date separator */}
-        <div className="flex justify-center mb-4">
-          <div className="glass-card px-4 py-1.5 text-xs text-muted-foreground">
-            Today
-          </div>
-        </div>
-
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isOwn={message.senderId === currentUser.id}
-          />
-        ))}
-
-        {isTyping && <TypingIndicator />}
-
-        <div ref={messagesEndRef} />
+      <div className="flex-1 overflow-hidden">
+        <Virtuoso
+          className="h-full px-4 py-4 scrollbar-hide"
+          data={listData}
+          followOutput="smooth"
+          itemContent={(_, message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isOwn={message.senderId === loggedInUser?.id}
+            />
+          )}
+          components={{
+            Header: () => (
+              <div className="space-y-4">
+                {isBlocked && (
+                  <div className="flex justify-center">
+                    <div className="glass-card px-4 py-2 text-xs text-muted-foreground">
+                      You blocked this contact. Unblock them in Settings to send messages.
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-center">
+                  <div className="glass-card px-4 py-1.5 text-xs text-muted-foreground">
+                    Today
+                  </div>
+                </div>
+              </div>
+            ),
+            Footer: () => (
+              <div className="pb-2">
+                {isTyping ? <TypingIndicator /> : null}
+              </div>
+            ),
+          }}
+        />
       </div>
 
       {/* Input */}
@@ -206,9 +338,10 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
               type="text"
               placeholder="Message..."
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground"
+              disabled={isBlocked}
+              className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <button

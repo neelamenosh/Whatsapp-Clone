@@ -2,13 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { chats } from '@/lib/mock-data';
+import { chats as initialChats } from '@/lib/mock-data';
+import { getCurrentUser } from '@/lib/user-store';
 import { ChatListItem } from './chat-list-item';
+import { NewChatModal } from './new-chat-modal';
+import { ProfileModal } from '@/components/profile/profile-modal';
 import { Search, Camera, MoreHorizontal, Plus, Users, Globe, Tag, Smartphone, Settings } from 'lucide-react';
+import type { Chat, User } from '@/lib/types';
 
 interface ChatListProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
+  onOpenSettings: () => void;
+  chats: Chat[];
+  onChatsChange: (chats: Chat[]) => void;
 }
 
 const menuItems = [
@@ -19,10 +26,19 @@ const menuItems = [
   { icon: Settings, label: 'Settings' },
 ];
 
-export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
+export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, onChatsChange }: ChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Load current user
+  useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
+  }, [isProfileOpen]); // Refresh when profile closes
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -51,7 +67,33 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
       {/* Header */}
       <div className="p-4 pb-2">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-foreground">Chats</h1>
+          {/* User Avatar and Title */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              className="relative group"
+              aria-label="Open profile"
+            >
+              <div className={cn(
+                'w-10 h-10 rounded-full overflow-hidden',
+                'ring-2 ring-glass-border/50',
+                'transition-all duration-200',
+                'group-hover:ring-primary group-hover:scale-105'
+              )}>
+                <img
+                  src={currentUser?.avatar || "/placeholder.svg"}
+                  alt={currentUser?.name || "Profile"}
+                  className="w-full h-full object-cover"
+                  crossOrigin="anonymous"
+                />
+              </div>
+              {currentUser?.status === 'online' && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background" />
+              )}
+            </button>
+            <h1 className="text-2xl font-bold text-foreground">Chats</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button 
               type="button"
@@ -112,7 +154,10 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
                       "hover:bg-green-50/60 dark:hover:bg-green-900/20 transition-colors duration-200",
                       "active:bg-green-100/60 dark:active:bg-green-900/30"
                     )}
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (item.label === 'Settings') onOpenSettings();
+                    }}
                   >
                     <item.icon className="h-5 w-5 text-primary" />
                     <span>{item.label}</span>
@@ -185,6 +230,7 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
       {/* Floating Action Button - Green Glass Droplet */}
       <button
         type="button"
+        onClick={() => setIsNewChatOpen(true)}
         className={cn(
           'absolute bottom-24 right-4 w-14 h-14 rounded-full',
           'flex items-center justify-center',
@@ -229,6 +275,27 @@ export function ChatList({ selectedChatId, onSelectChat }: ChatListProps) {
         />
         <Plus className="h-6 w-6 text-white relative z-10 drop-shadow-sm" />
       </button>
+
+      {/* New Chat Modal */}
+      <NewChatModal
+        open={isNewChatOpen}
+        onOpenChange={setIsNewChatOpen}
+        existingChats={chats}
+        onStartChat={(newChat) => {
+          // Check if chat already exists
+          const exists = chats.find(c => c.id === newChat.id);
+          if (!exists) {
+            onChatsChange([newChat, ...chats]);
+          }
+          onSelectChat(newChat.id);
+        }}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        open={isProfileOpen}
+        onOpenChange={setIsProfileOpen}
+      />
     </div>
   );
 }
