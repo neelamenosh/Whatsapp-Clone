@@ -6,7 +6,7 @@ import { X, LogOut, User as UserIcon, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { users, currentUser } from '@/lib/mock-data';
 import { useSettings } from '@/components/settings-provider';
-import { clearCurrentUser, getCurrentUser } from '@/lib/user-store';
+import { clearCurrentUser, getCurrentUser } from '@/lib/auth-store';
 import { ProfileModal } from '@/components/profile/profile-modal';
 import type { Visibility } from '@/lib/settings';
 import type { User } from '@/lib/types';

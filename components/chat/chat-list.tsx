@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { chats as initialChats } from '@/lib/mock-data';
-import { getCurrentUser } from '@/lib/user-store';
+import { getCurrentUser } from '@/lib/auth-store';
 import { ChatListItem } from './chat-list-item';
 import { NewChatModal } from './new-chat-modal';
 import { ProfileModal } from '@/components/profile/profile-modal';

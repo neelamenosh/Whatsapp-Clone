@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Chat, Message } from '@/lib/types';
 import { currentUser } from '@/lib/mock-data';
-import { getCurrentUser } from '@/lib/user-store';
+import { getCurrentUser } from '@/lib/auth-store';
 import { formatLastSeen } from '@/lib/format';
 import { useSettings } from '@/components/settings-provider';
 import { Virtuoso } from 'react-virtuoso';

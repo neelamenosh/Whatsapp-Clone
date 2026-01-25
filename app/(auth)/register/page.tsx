@@ -16,7 +16,7 @@ import {
   Check,
   X
 } from "lucide-react";
-import { registerUser, findUserByEmail } from "@/lib/user-store";
+import { registerUser, findUserByEmail } from "@/lib/auth-store";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -97,21 +97,28 @@ export default function RegisterPage() {
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const existingUser = findUserByEmail(formData.email);
+      // Check if email already exists
+      const existingUser = await findUserByEmail(formData.email);
       if (existingUser) {
         setErrors({ general: "An account with this email already exists. Please sign in." });
         setIsLoading(false);
         return;
       }
       
-      registerUser({
+      // Register with Supabase or localStorage fallback
+      const result = await registerUser({
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
+        password: formData.password,
       });
+      
+      if (result.error || !result.user) {
+        setErrors({ general: result.error || "Registration failed. Please try again." });
+        setIsLoading(false);
+        return;
+      }
       
       router.push("/login?registered=true");
     } catch (error) {

@@ -13,7 +13,7 @@ import {
   Building2,
   Loader2
 } from "lucide-react";
-import { loginUser, findUserByEmail } from "@/lib/user-store";
+import { loginUser, isDatabaseConfigured } from "@/lib/auth-store";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,19 +58,14 @@ export default function LoginPage() {
     setErrors({});
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Login with Supabase or localStorage fallback
+      const result = await loginUser(formData.email, formData.password);
       
-      // Check if user exists
-      const user = findUserByEmail(formData.email);
-      if (!user) {
-        setErrors({ general: "No account found with this email. Please register first." });
+      if (result.error || !result.user) {
+        setErrors({ general: result.error || "Invalid credentials. Please try again." });
         setIsLoading(false);
         return;
       }
-      
-      // Log the user in
-      loginUser(formData.email);
       
       router.push("/");
     } catch (error) {

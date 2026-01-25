@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { X, Mail, Search, Loader2, UserPlus, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { findUserByEmail, getCurrentUser } from '@/lib/user-store';
+import { findUserByEmail, getCurrentUser } from '@/lib/auth-store';
 import type { User, Chat } from '@/lib/types';
 
 interface NewChatModalProps {
@@ -68,11 +68,8 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
 
     setIsSearching(true);
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Search for user by email in the registered users
-    const user = findUserByEmail(email);
+    // Search for user by email in the registered users (async for Supabase)
+    const user = await findUserByEmail(email);
 
     setIsSearching(false);
     setHasSearched(true);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { TabType, Chat } from '@/lib/types';
 import { calls, getChatById, setCurrentUserData } from '@/lib/mock-data';
-import { getCurrentUser } from '@/lib/user-store';
+import { getCurrentUser, isDatabaseConfigured } from '@/lib/auth-store';
 import { getUserChats, saveUserChats } from '@/lib/chat-store';
 import { getLiveChatService } from '@/lib/live-chat';
 import { TabBar } from './navigation/tab-bar';

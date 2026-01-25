@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { getCurrentUser, setCurrentUser, getRegisteredUsers } from '@/lib/user-store';
+import { getCurrentUser, setCurrentUser, getAllRegisteredUsers } from '@/lib/auth-store';
 import type { User } from '@/lib/types';
 import { 
   X, 
