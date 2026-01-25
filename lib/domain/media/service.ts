@@ -336,3 +336,22 @@ export function getLinkPreviewStore(): LinkPreviewStore {
   if (!linkPreviewStore) linkPreviewStore = new MemoryLinkPreviewStore();
   return linkPreviewStore;
 }
+
+// Factory function for MediaService
+let mediaServiceInstance: MediaService | null = null;
+
+export function getMediaService(): MediaService {
+  if (!mediaServiceInstance) {
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    mediaServiceInstance = new MediaService(
+      getMediaStore(),
+      getThumbnailStore(),
+      getLinkPreviewStore(),
+      eventBus
+    );
+  }
+  return mediaServiceInstance;
+}

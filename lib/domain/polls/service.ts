@@ -303,3 +303,17 @@ export function getPollStore(): PollStore {
   }
   return pollStore;
 }
+
+// Factory function for PollService
+let pollServiceInstance: PollService | null = null;
+
+export function getPollService(): PollService {
+  if (!pollServiceInstance) {
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    pollServiceInstance = new PollService(getPollStore(), eventBus);
+  }
+  return pollServiceInstance;
+}

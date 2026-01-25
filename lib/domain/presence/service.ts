@@ -217,3 +217,17 @@ export function getPresenceStore(): PresenceStore {
   }
   return presenceStore;
 }
+
+// Factory function for PresenceService
+let presenceServiceInstance: PresenceService | null = null;
+
+export function getPresenceService(): PresenceService {
+  if (!presenceServiceInstance) {
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    presenceServiceInstance = new PresenceService(getPresenceStore(), eventBus);
+  }
+  return presenceServiceInstance;
+}

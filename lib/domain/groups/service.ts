@@ -412,3 +412,18 @@ export function getGroupStore(): GroupStore {
   }
   return groupStore;
 }
+
+// Factory function for GroupService
+let groupServiceInstance: GroupService | null = null;
+
+export function getGroupService(): GroupService {
+  if (!groupServiceInstance) {
+    // Create with a simple in-memory event bus
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    groupServiceInstance = new GroupService(getGroupStore(), eventBus);
+  }
+  return groupServiceInstance;
+}

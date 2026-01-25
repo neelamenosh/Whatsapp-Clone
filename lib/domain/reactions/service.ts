@@ -201,3 +201,17 @@ export function getReactionStore(): ReactionStore {
   }
   return reactionStore;
 }
+
+// Factory function for ReactionService
+let reactionServiceInstance: ReactionService | null = null;
+
+export function getReactionService(): ReactionService {
+  if (!reactionServiceInstance) {
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    reactionServiceInstance = new ReactionService(getReactionStore(), eventBus);
+  }
+  return reactionServiceInstance;
+}

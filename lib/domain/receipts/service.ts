@@ -277,3 +277,17 @@ export function getReadReceiptStore(): ReadReceiptStore {
   }
   return readReceiptStore;
 }
+
+// Factory function for ReadReceiptService
+let readReceiptServiceInstance: ReadReceiptService | null = null;
+
+export function getReadReceiptService(): ReadReceiptService {
+  if (!readReceiptServiceInstance) {
+    const eventBus: EventBus = {
+      publish: async () => {},
+      subscribe: () => () => {},
+    };
+    readReceiptServiceInstance = new ReadReceiptService(getReadReceiptStore(), eventBus);
+  }
+  return readReceiptServiceInstance;
+}
