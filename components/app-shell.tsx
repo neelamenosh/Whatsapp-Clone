@@ -457,16 +457,8 @@ export function AppShell() {
   
       // Otherwise show the appropriate tab content
       switch (activeTab) {
-        case 'contacts':
-          return (
-            <ContactsList 
-              onSelectUser={async (userId) => {
-                const chatId = getConsistentChatId(getCurrentUser()?.id!, userId);
-                handleSelectChat(chatId);
-                setActiveTab('chats');
-              }} 
-            />
-          );
+        case 'status':
+          return <StatusList />;
         case 'chats':
           return (
             <ChatList

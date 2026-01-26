@@ -11,13 +11,13 @@ interface TabBarProps {
   missedCalls?: number;
 }
 
-export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 0 }: TabBarProps) {
-  const tabs: { id: TabType; label: string; icon: typeof MessageSquare; badge?: number }[] = [
-    { id: 'contacts', label: 'Contacts', icon: Users },
-    { id: 'calls', label: 'Calls', icon: Phone, badge: missedCalls },
-    { id: 'chats', label: 'Chats', icon: MessageSquare, badge: unreadChats },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
+  export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 0 }: TabBarProps) {
+    const tabs: { id: TabType; label: string; icon: typeof MessageSquare; badge?: number }[] = [
+      { id: 'chats', label: 'Chats', icon: MessageSquare, badge: unreadChats },
+      { id: 'status', label: 'Status', icon: Circle },
+      { id: 'calls', label: 'Calls', icon: Phone, badge: missedCalls },
+      { id: 'settings', label: 'Settings', icon: Settings },
+    ];
 
     return (
     <nav 

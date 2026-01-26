@@ -55,4 +55,4 @@ export interface Call {
   duration?: number;
 }
 
-export type TabType = 'contacts' | 'calls' | 'chats' | 'settings';
+export type TabType = 'chats' | 'status' | 'calls' | 'settings' | 'contacts';
