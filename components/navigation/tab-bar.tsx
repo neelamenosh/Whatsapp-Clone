@@ -2,7 +2,8 @@
 
 import { cn } from '@/lib/utils';
 import type { TabType } from '@/lib/types';
-import { MessageSquare, Circle, Phone, Users } from 'lucide-react';
+import { MessageSquare, Circle, Phone } from 'lucide-react';
+import { GlassEffect, GlassFilter } from '@/components/ui/liquid-glass';
 
 interface TabBarProps {
   activeTab: TabType;
@@ -19,8 +20,12 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
   ];
 
   return (
-    <nav className="glass-panel border-t-0 rounded-t-3xl px-6 py-3 safe-area-bottom">
-      <div className="flex items-center justify-around">
+    <nav className="sticky bottom-0 z-50 w-full safe-area-bottom">
+      <GlassFilter />
+
+      <div className="px-4 pb-3">
+        <GlassEffect className="glass-panel mx-auto max-w-md rounded-[2.25rem] p-2">
+          <div className="flex items-center justify-between gap-1">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -31,7 +36,7 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
               type="button"
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                'relative flex flex-col items-center gap-1 px-6 py-2 rounded-2xl transition-all duration-300',
+                'relative flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2.5 rounded-2xl transition-all duration-300',
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
@@ -77,6 +82,8 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
             </button>
           );
         })}
+          </div>
+        </GlassEffect>
       </div>
     </nav>
   );
