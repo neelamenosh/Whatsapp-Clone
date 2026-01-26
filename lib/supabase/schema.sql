@@ -19,12 +19,12 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Messages table
+-- Messages table (using TEXT for sender/recipient to support flexible IDs)
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   chat_id TEXT NOT NULL,
-  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sender_id TEXT NOT NULL,
+  recipient_id TEXT NOT NULL,
   content TEXT NOT NULL,
   type TEXT DEFAULT 'text',
   status TEXT DEFAULT 'sent',

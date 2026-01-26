@@ -9,6 +9,8 @@ import { formatLastSeen } from '@/lib/format';
 import { useSettings } from '@/components/settings-provider';
 import { Virtuoso } from 'react-virtuoso';
 import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import * as supabaseMessages from '@/lib/supabase/messages';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { 
@@ -48,21 +50,41 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     ? getConsistentChatId(loggedInUser.id, participant.id) 
     : chat.id;
 
-  // Load messages from localStorage on mount
+  // Load messages from Supabase or localStorage on mount
   useEffect(() => {
-    const liveChatService = getLiveChatService();
-    // Use consistent chat ID for loading messages
-    const storedMessages = liveChatService.getMessages(consistentChatId);
-    setMessages(storedMessages);
+    const loadMessages = async () => {
+      if (isSupabaseConfigured() && loggedInUser) {
+        // Load from Supabase
+        const supabaseMsgs = await supabaseMessages.getMessages(loggedInUser.id, participant.id);
+        const formattedMsgs: Message[] = supabaseMsgs.map(msg => ({
+          id: msg.id,
+          senderId: msg.senderId,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          status: msg.status,
+          type: msg.type,
+        }));
+        setMessages(formattedMsgs);
+      } else {
+        // Fallback to localStorage
+        const liveChatService = getLiveChatService();
+        const storedMessages = liveChatService.getMessages(consistentChatId);
+        setMessages(storedMessages);
+      }
+    };
+    
+    loadMessages();
     
     // Check if participant is online
+    const liveChatService = getLiveChatService();
     setIsOnline(liveChatService.isUserOnline(participant.id));
-  }, [consistentChatId, participant.id]);
+  }, [consistentChatId, participant.id, loggedInUser]);
 
-  // Listen for incoming messages
+  // Listen for incoming messages (both Supabase real-time and localStorage)
   useEffect(() => {
     const liveChatService = getLiveChatService();
     
+    // Subscribe to localStorage/BroadcastChannel updates
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       // Check if this message is for the current conversation
       if (chatId !== consistentChatId) return;
@@ -76,10 +98,38 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
       });
     });
 
+    // Subscribe to Supabase real-time updates if configured
+    let supabaseChannel: ReturnType<typeof supabaseMessages.subscribeToChat> = null;
+    if (isSupabaseConfigured() && loggedInUser) {
+      const chatId = supabaseMessages.getChatId(loggedInUser.id, participant.id);
+      supabaseChannel = supabaseMessages.subscribeToChat(chatId, (msg) => {
+        // Only add if not from current user (to avoid duplicates)
+        if (msg.senderId !== loggedInUser.id) {
+          const formattedMsg: Message = {
+            id: msg.id,
+            senderId: msg.senderId,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+            status: msg.status,
+            type: msg.type,
+          };
+          setMessages((prev) => {
+            if (prev.some(m => m.id === formattedMsg.id)) {
+              return prev;
+            }
+            return [...prev, formattedMsg];
+          });
+        }
+      });
+    }
+
     return () => {
       unsubMessage();
+      if (supabaseChannel) {
+        supabaseMessages.unsubscribe(supabaseChannel);
+      }
     };
-  }, [consistentChatId]);
+  }, [consistentChatId, loggedInUser, participant.id]);
 
   // Listen for typing indicator
   useEffect(() => {
@@ -146,13 +196,16 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     const ttlSeconds = settings.privacy.disappearingMessagesSeconds;
     const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : undefined;
 
+    // Store the message content before clearing input
+    const messageContent = inputValue.trim();
+    
     // Generate client-side ID
     const messageId = `m-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     const newMessage: Message = {
       id: messageId,
       senderId: loggedInUser.id,
-      content: inputValue,
+      content: messageContent,
       timestamp: new Date(),
       status: 'sending',
       type: 'text',
@@ -170,7 +223,35 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     const liveChatService = getLiveChatService();
     liveChatService.sendTyping(consistentChatId, false);
     
-    // Send via live chat service with recipient ID for proper routing
+    // Send message to Supabase if configured
+    if (isSupabaseConfigured()) {
+      console.log('Sending message to Supabase:', {
+        senderId: loggedInUser.id,
+        recipientId: participant.id,
+        content: messageContent,
+      });
+      
+      supabaseMessages.sendMessage(
+        loggedInUser.id,
+        participant.id,
+        messageContent,
+        'text'
+      ).then(result => {
+        if (result.error) {
+          console.error('Failed to send message to Supabase:', result.error);
+        } else if (result.message) {
+          console.log('Message sent to Supabase successfully:', result.message);
+          // Update message ID to match Supabase
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId ? { ...m, id: result.message!.id } : m
+            )
+          );
+        }
+      });
+    }
+    
+    // Also send via live chat service for real-time updates to other tabs
     liveChatService.sendMessage(consistentChatId, newMessage, participant.id);
 
     // If first message, notify recipient about new chat
