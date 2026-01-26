@@ -102,7 +102,8 @@ export function ChatListItem({ chat, isSelected, onClick, onChatUpdate, onChatDe
   };
 
   const getStatusIcon = () => {
-    if (!chat.lastMessage || chat.lastMessage.senderId !== 'current-user') return null;
+    // Show status icon only for messages sent by the logged-in user
+    if (!chat.lastMessage || !loggedInUser || chat.lastMessage.senderId !== loggedInUser.id) return null;
     
     switch (chat.lastMessage.status) {
       case 'read':

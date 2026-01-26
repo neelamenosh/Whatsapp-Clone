@@ -385,12 +385,36 @@ export function AppShell() {
     setChats(newChats);
     saveUserChats(newChats);
   };
+  
+  // Handler for when a message is sent from the conversation view
+  const handleMessageSent = useCallback((chatId: string, message: any) => {
+    setChats((prev) => {
+      const chatIndex = prev.findIndex(c => c.id === chatId || c.id === selectedChatId);
+      if (chatIndex === -1) return prev;
+      
+      const updated = [...prev];
+      updated[chatIndex] = {
+        ...updated[chatIndex],
+        lastMessage: message,
+        updatedAt: new Date(),
+      };
+      
+      // Sort by updatedAt to move this chat to the top
+      updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      
+      return updated;
+    });
+  }, [selectedChatId]);
 
   const renderContent = () => {
     // If a chat is selected, show the conversation view
     if (selectedChat && activeTab === 'chats') {
       return (
-        <ConversationView chat={selectedChat} onBack={handleBackFromChat} />
+        <ConversationView 
+          chat={selectedChat} 
+          onBack={handleBackFromChat} 
+          onMessageSent={handleMessageSent}
+        />
       );
     }
 

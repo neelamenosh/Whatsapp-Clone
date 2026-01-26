@@ -38,9 +38,10 @@ import {
 interface ConversationViewProps {
   chat: Chat;
   onBack: () => void;
+  onMessageSent?: (chatId: string, message: Message) => void;
 }
 
-export function ConversationView({ chat, onBack }: ConversationViewProps) {
+export function ConversationView({ chat, onBack, onMessageSent }: ConversationViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -343,6 +344,11 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     // Add to local state immediately
     setMessages((prev) => [...prev, newMessage]);
     setInputValue('');
+    
+    // Notify parent to update chat's lastMessage in the chat list
+    if (onMessageSent) {
+      onMessageSent(consistentChatId, newMessage);
+    }
     
     // Stop typing indicator
     const liveChatService = getLiveChatService();
