@@ -961,7 +961,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       {/* Messages */}
       <div className="flex-1 overflow-hidden w-full">
         <Virtuoso
-          className="h-full px-2 sm:px-4 md:px-6 lg:px-8 py-4 scrollbar-hide"
+          className="h-full py-4 scrollbar-hide"
           data={displayMessages}
           followOutput="smooth"
           itemContent={(index, message) => {
@@ -971,8 +971,8 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             return (
               <div
                 className={cn(
-                  'transition-all duration-200',
-                  isSearchMatch && 'bg-primary/10 -mx-2 px-2 rounded-lg',
+                  'px-2 sm:px-4 md:px-6 lg:px-8 transition-all duration-200',
+                  isSearchMatch && 'bg-primary/10 rounded-lg',
                   isCurrentSearchMatch && 'bg-primary/20 ring-2 ring-primary/50'
                 )}
               >
@@ -987,7 +987,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           }}
           components={{
             Header: () => (
-              <div className="space-y-4">
+              <div className="space-y-4 px-2 sm:px-4 md:px-6 lg:px-8">
                 {/* E2EE Banner */}
                 {isE2EE && (
                   <div className="flex justify-center">
@@ -1014,7 +1014,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               </div>
             ),
             Footer: () => (
-              <div className="pb-2">
+              <div className="pb-2 px-2 sm:px-4 md:px-6 lg:px-8">
                 {isTyping ? <TypingIndicator /> : null}
               </div>
             ),
