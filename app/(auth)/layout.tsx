@@ -76,8 +76,8 @@ export default function AuthLayout({
       </div>
       
       {/* Right Panel - Auth Forms */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-8 bg-background overflow-y-auto">
+        <div className="w-full max-w-md py-8">
           {children}
         </div>
       </div>
