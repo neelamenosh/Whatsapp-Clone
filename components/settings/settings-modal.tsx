@@ -8,6 +8,22 @@ import {
   UserMinus, Fingerprint, Key, RefreshCw, Layers, Zap, Cloud, Server,
   Compass, Users, Camera, FileText
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useSettings } from '@/components/settings-provider';
+import type { Visibility } from '@/lib/settings';
+import type { User } from '@/lib/types';
+import { 
+  getCurrentUser, 
+  clearCurrentUser, 
+  deleteUserAccount,
+  getAllRegisteredUsers
+} from '@/lib/auth-store';
+import { ProfileModal } from '@/components/profile/profile-modal';
+
+export interface SettingsModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
 function Section({ title, children, icon: Icon }: { title: string; children: React.ReactNode; icon?: any }) {
   return (
@@ -52,29 +68,6 @@ function Row({
   );
 }
 
-
-function Row({
-  label,
-  description,
-  right,
-}: {
-  label: string;
-  description?: string;
-  right: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description ? (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        ) : null}
-      </div>
-      <div className="shrink-0">{right}</div>
-    </div>
-  );
-}
-
 function Toggle({
   checked,
   onChange,
@@ -93,12 +86,12 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={cn(
         'relative w-12 h-7 rounded-full border transition-colors',
-        checked ? 'bg-primary border-primary' : 'bg-muted/60 border-border'
+        checked ? 'bg-[#2AABEE] border-[#2AABEE]' : 'bg-white/5 border-white/10'
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-background shadow-sm transition-transform',
+          'absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform',
           checked ? 'translate-x-5' : 'translate-x-0'
         )}
       />
@@ -163,25 +156,32 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const [loggedInUser, setLoggedInUser] = React.useState<User | null>(null);
+  const [otherUsers, setOtherUsers] = React.useState<User[]>([]);
 
-  // Load current user
+  // Load current user and other users
   React.useEffect(() => {
     if (open) {
-      setLoggedInUser(getCurrentUser());
+      const user = getCurrentUser();
+      setLoggedInUser(user);
+      
+      getAllRegisteredUsers().then(users => {
+        if (user) {
+          setOtherUsers(users.filter(u => u.id !== user.id));
+        } else {
+          setOtherUsers(users);
+        }
+      });
     }
   }, [open, isProfileOpen]);
 
   const handleLogout = () => {
-    // Clear current user session
     clearCurrentUser();
-    
     onOpenChange(false);
     router.push('/login');
   };
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    
     const result = await deleteUserAccount();
     
     if (result.error) {
@@ -204,7 +204,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   if (!open) return null;
 
-  const blockableUsers = users.filter((u) => u.id !== currentUser.id);
   const blocked = new Set(settings.privacy.blockedUserIds);
 
   return (
@@ -361,7 +360,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       </p>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
-                      {blockableUsers.map((u) => {
+                      {otherUsers.map((u) => {
                         const isBlocked = blocked.has(u.id);
                         return (
                           <div
