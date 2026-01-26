@@ -230,7 +230,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
-              {/* Identity & Profile */}
+              {/* Profile Section */}
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(true)}
@@ -255,9 +255,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     )}
                   </div>
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-[11px] font-bold text-[#2AABEE] uppercase tracking-[0.2em] mb-1">Identity & Profile</p>
-                    <p className="text-xl font-bold text-white tracking-tight truncate">{loggedInUser?.name || 'Authorized User'}</p>
-                    <p className="text-sm text-white/40 truncate mt-0.5">{loggedInUser?.about || 'Status: Active'}</p>
+                    <p className="text-[11px] font-bold text-[#2AABEE] uppercase tracking-[0.2em] mb-1">Account Info</p>
+                    <p className="text-xl font-bold text-white tracking-tight truncate">{loggedInUser?.name || 'User'}</p>
+                    <p className="text-sm text-white/40 truncate mt-0.5">{loggedInUser?.about || 'Hey there! I am using WhatsApp.'}</p>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#2AABEE]/10 transition-colors">
                     <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-[#2AABEE]" />
@@ -266,10 +266,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </button>
 
               <div className="space-y-6">
-                <Section title="Privacy & Data Governance" icon={Shield}>
+                <Section title="Privacy" icon={Shield}>
                   <Row
-                    label="Presence Management"
-                    description="Configure visibility of real-time network presence and activity."
+                    label="Last Seen"
+                    description="Control who can see when you were last online."
                     icon={Eye}
                     right={
                       <VisibilitySelect
@@ -280,13 +280,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             privacy: { ...s.privacy, lastSeenVisibility: v },
                           }))
                         }
-                        ariaLabel="Presence visibility"
+                        ariaLabel="Last seen visibility"
                       />
                     }
                   />
                   <Row
-                    label="Acknowledgment Receipts"
-                    description="Enable or disable delivery and read confirmation protocols."
+                    label="Read Receipts"
+                    description="If turned off, you won't send or receive Read Receipts."
                     icon={RefreshCw}
                     right={
                       <Toggle
@@ -302,8 +302,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Asset Visibility"
-                    description="Restrict profile image access to authorized contacts or groups."
+                    label="Profile Photo"
+                    description="Choose who can see your profile picture."
                     icon={UserIcon}
                     right={
                       <VisibilitySelect
@@ -319,8 +319,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Broadcast Presence"
-                    description="Manage visibility of ephemeral status updates across the organization."
+                    label="Status Updates"
+                    description="Manage who can see your status updates."
                     icon={Globe}
                     right={
                       <VisibilitySelect
@@ -336,8 +336,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Data Retention Policy"
-                    description="Define automatic expiration timers for peer-to-peer communications."
+                    label="Disappearing Messages"
+                    description="Automatically delete new messages after a certain time."
                     icon={Zap}
                     right={
                       <DisappearingSelect
@@ -356,7 +356,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <div className="flex items-center gap-2 mb-4">
                       <UserMinus className="w-3.5 h-3.5 text-white/30" />
                       <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                        Access Restrictions
+                        Blocked Contacts
                       </p>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
@@ -393,7 +393,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                   },
                                 }))
                               }
-                              ariaLabel={`Restrict ${u.name}`}
+                              ariaLabel={`Block ${u.name}`}
                             />
                           </div>
                         );
@@ -402,10 +402,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   </div>
                 </Section>
 
-                <Section title="Security & Authentication" icon={Lock}>
+                <Section title="Security" icon={Lock}>
                   <Row
-                    label="Identity Access Management (IAM)"
-                    description="Mandate biometric or system-level authentication for application access."
+                    label="Device Lock"
+                    description="Require biometric or passcode to unlock the app."
                     icon={Fingerprint}
                     right={
                       <Toggle
@@ -421,8 +421,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Multi-Factor Authentication (MFA)"
-                    description="Configure secondary verification layers for enhanced account security."
+                    label="Two-Step Verification"
+                    description="Add an extra layer of security to your account."
                     icon={Key}
                     right={
                       <Toggle
@@ -439,10 +439,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   />
                 </Section>
 
-                <Section title="Interface & Accessibility" icon={Layout}>
+                <Section title="Appearance" icon={Layout}>
                   <Row
-                    label="High Contrast Mode"
-                    description="Enhance visual legibility for high-compliance accessibility standards."
+                    label="High Contrast"
+                    description="Increase the contrast for better visibility."
                     icon={Sliders}
                     right={
                       <Toggle
@@ -458,8 +458,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Transparency Protocols"
-                    description="Optimize system performance by disabling complex glassmorphic effects."
+                    label="Reduced Transparency"
+                    description="Disable glass effects to improve performance."
                     icon={Layers}
                     right={
                       <Toggle
@@ -478,8 +478,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Motion Optimization"
-                    description="Minimize kinetic transitions to reduce cognitive load and energy consumption."
+                    label="Reduced Motion"
+                    description="Minimize animations and motion effects."
                     icon={Zap}
                     right={
                       <Toggle
@@ -496,10 +496,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   />
                 </Section>
 
-                <Section title="Enterprise Integrations" icon={Link}>
+                <Section title="App Settings" icon={Link}>
                   <Row
-                    label="Data Synchronization"
-                    description="Real-time syncing across enterprise nodes and authorized devices."
+                    label="Cloud Sync"
+                    description="Sync your data across all your devices."
                     icon={Cloud}
                     right={
                       <Toggle
@@ -515,8 +515,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Encrypted Archives"
-                    description="Manage end-to-end encrypted backup protocols for regulatory compliance."
+                    label="Chat Backups"
+                    description="Manage your encrypted chat backups."
                     icon={Server}
                     right={
                       <Toggle
@@ -535,8 +535,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="External Media Services"
-                    description="Sync with corporate media libraries and streaming services."
+                    label="Music Sharing"
+                    description="Share your favorite music with contacts."
                     icon={Share2}
                     right={
                       <Toggle
@@ -550,13 +550,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             },
                           }))
                         }
-                        ariaLabel="Enable Apple Music sharing"
+                        ariaLabel="Enable music sharing"
                       />
                     }
                   />
                   <Row
-                    label="Geolocation Infrastructure"
-                    description="Utilize GIS data for real-time location and asset tracking."
+                    label="Maps & Location"
+                    description="Use maps for sharing your real-time location."
                     icon={Compass}
                     right={
                       <Toggle
@@ -575,8 +575,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Directory Services"
-                    description="Integrate with global contact directories and LDAP systems."
+                    label="Sync Contacts"
+                    description="Connect with people from your phone's directory."
                     icon={Users}
                     right={
                       <Toggle
@@ -595,8 +595,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="Visual Capture Access"
-                    description="Permissions for integrated imaging hardware and secure photo libraries."
+                    label="Camera & Photos"
+                    description="Access your camera and photo library."
                     icon={Camera}
                     right={
                       <Toggle
@@ -615,8 +615,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     }
                   />
                   <Row
-                    label="FileSystem Connectivity"
-                    description="Direct interface with local and network-attached storage systems."
+                    label="Files & Documents"
+                    description="Share files directly from your device storage."
                     icon={FileText}
                     right={
                       <Toggle
@@ -633,7 +633,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   />
                 </Section>
 
-                <Section title="System & Compliance" icon={Database}>
+                <Section title="Account Management" icon={Database}>
                   <div className="space-y-4">
                     {!showLogoutConfirm ? (
                       <button
@@ -645,14 +645,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           <div className="p-2 rounded-lg bg-white/5 text-white/40 group-hover:text-white transition-colors">
                             <LogOut className="w-4 h-4" />
                           </div>
-                          <span>Terminate Session</span>
+                          <span>Logout</span>
                         </div>
                         <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white" />
                       </button>
                     ) : (
                       <div className="p-5 glass-card border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <p className="text-sm text-white/90 font-medium text-center">
-                          Confirm Secure Logout?
+                          Confirm Logout?
                         </p>
                         <div className="flex gap-3">
                           <button
@@ -683,7 +683,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           <div className="p-2 rounded-lg bg-red-500/5 text-red-500/40 group-hover:text-red-400 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </div>
-                          <span>Purge User Data & Account</span>
+                          <span>Delete My Account</span>
                         </div>
                         <ChevronRight className="w-4 h-4 text-red-500/20 group-hover:text-red-400" />
                       </button>
@@ -691,10 +691,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       <div className="p-5 glass-card border-red-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="space-y-2 text-center">
                           <p className="text-sm text-red-400 font-bold uppercase tracking-wider">
-                            CRITICAL ACTION
+                            WARNING
                           </p>
                           <p className="text-xs text-white/40 leading-relaxed">
-                            This will initiate a complete data purge from all distributed nodes. This action is irreversible and compliant with GDPR Right to Erasure.
+                            This will permanently delete your account and all your messages. This action cannot be undone.
                           </p>
                         </div>
                         <div className="flex gap-3">
@@ -704,7 +704,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             disabled={isDeleting}
                             className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 text-xs font-bold uppercase tracking-wider rounded-xl transition-colors disabled:opacity-50"
                           >
-                            Abort
+                            Cancel
                           </button>
                           <button
                             type="button"
@@ -712,7 +712,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             disabled={isDeleting}
                             className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors shadow-lg shadow-red-500/20 disabled:opacity-50"
                           >
-                            {isDeleting ? 'PURGING...' : 'CONFIRM PURGE'}
+                            {isDeleting ? 'Deleting...' : 'Delete Account'}
                           </button>
                         </div>
                       </div>
@@ -726,14 +726,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     className="flex-1 glass-card px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-[#2AABEE] hover:bg-[#2AABEE]/5 transition-all duration-300 border border-white/5"
                     onClick={resetSettings}
                   >
-                    System Reset
+                    Reset to Defaults
                   </button>
                   <button
                     type="button"
                     className="flex-1 glass-card px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#2AABEE] hover:bg-[#2AABEE]/10 transition-all duration-300 border border-[#2AABEE]/20"
                     onClick={() => onOpenChange(false)}
                   >
-                    Commit Changes
+                    Done
                   </button>
                 </div>
               </div>
