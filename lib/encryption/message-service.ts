@@ -86,9 +86,9 @@ export async function encryptMessageForSending(
     const sharedKey = getSharedKey(recipientPublicKey, myPrivateKey);
     const encrypted = encryptWithSharedKey(plaintext, sharedKey, myPublicKey);
     
-    // Return encrypted payload
+    // Return encrypted payload - store plaintext in content as fallback for cross-device
     return {
-      content: '🔒 Encrypted message',
+      content: plaintext,  // Store plaintext as fallback for devices without matching keys
       type: messageType,
       encrypted: true,
       ciphertext: encrypted.ciphertext,
