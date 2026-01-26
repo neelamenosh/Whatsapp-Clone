@@ -66,7 +66,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   const [isClearing, setIsClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -390,9 +390,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     };
   }, [participantId]);
 
-  // Handle typing indicator emission
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle typing indicator emission and textarea auto-resize
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
+
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const newHeight = Math.min(textarea.scrollHeight, 120); // Max 120px (about 5 lines)
+    textarea.style.height = `${newHeight}px`;
 
     const liveChatService = getLiveChatService();
     liveChatService.sendTyping(consistentChatId, true);
@@ -440,6 +446,11 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     // Add to local state immediately
     setMessages((prev) => [...prev, newMessage]);
     setInputValue('');
+
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = '44px';
+    }
 
     // Notify parent to update chat's lastMessage in the chat list
     if (onMessageSent) {
@@ -973,7 +984,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         <Virtuoso
           className="h-full py-4 scrollbar-hide"
           data={displayMessages}
+          initialTopMostItemIndex={displayMessages.length > 0 ? displayMessages.length - 1 : 0}
           followOutput="smooth"
+          alignToBottom={true}
           itemContent={(index, message) => {
             const isSearchMatch = searchResults.includes(index);
             const isCurrentSearchMatch = searchResults[currentSearchIndex] === index;
@@ -1063,14 +1076,20 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             </button>
 
             <div className="flex-1 relative">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 placeholder="Message..."
                 value={inputValue}
                 onChange={handleInputChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={1}
+                className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto leading-normal"
+                style={{ minHeight: '44px', maxHeight: '120px' }}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
