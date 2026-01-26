@@ -133,7 +133,7 @@ export function MessageBubble({ message, isOwn, showTimestamp = true, searchQuer
     >
       <div
         className={cn(
-          'max-w-[80%] px-4 py-2.5',
+          'max-w-[85%] sm:max-w-[75%] md:max-w-[70%] lg:max-w-[65%] px-4 py-2.5',
           'animate-in fade-in-0 slide-in-from-bottom-2 duration-300',
           isOwn ? 'message-bubble-sent' : 'message-bubble-received'
         )}

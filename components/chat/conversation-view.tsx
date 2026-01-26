@@ -12,23 +12,23 @@ import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseMessages from '@/lib/supabase/messages';
 import * as supabaseUsers from '@/lib/supabase/users';
-import { 
-  encryptMessageForSending, 
-  decryptReceivedMessage, 
+import {
+  encryptMessageForSending,
+  decryptReceivedMessage,
   isE2EEEnabled,
   initializeE2EE,
 } from '@/lib/encryption';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { ContactProfileModal } from './contact-profile-modal';
-import { 
-  ArrowLeft, 
-  Phone, 
-  Video, 
-  MoreVertical, 
-  Smile, 
-  Paperclip, 
-  Mic, 
+import {
+  ArrowLeft,
+  Phone,
+  Video,
+  MoreVertical,
+  Smile,
+  Paperclip,
+  Mic,
   Send,
   Camera,
   Search,
@@ -70,23 +70,23 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { settings, updateSettings } = useSettings();
-  
+
   const loggedInUser = getCurrentUser();
   const participant = chat.participants[0];
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
-  
+
   // Memoize participant ID to prevent unnecessary re-renders
   const participantId = useMemo(() => participant.id, [participant.id]);
   const loggedInUserId = useMemo(() => loggedInUser?.id, [loggedInUser?.id]);
-  
+
   // Check blocked status from both local settings and Supabase
   const isBlocked = !isGroup && (settings.privacy.blockedUserIds.includes(participantId) || isBlockedBySupabase);
-  
+
   // Get consistent chat ID for message storage - memoized to prevent recalculation
   const consistentChatId = useMemo(() => {
-    return !isGroup && loggedInUserId 
-      ? getConsistentChatId(loggedInUserId, participantId) 
+    return !isGroup && loggedInUserId
+      ? getConsistentChatId(loggedInUserId, participantId)
       : chat.id;
   }, [isGroup, loggedInUserId, participantId, chat.id]);
 
@@ -127,7 +127,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       .map((msg, index) => ({ index, matches: msg.content.toLowerCase().includes(query) }))
       .filter(item => item.matches)
       .map(item => item.index);
-    
+
     setSearchResults(results);
     setCurrentSearchIndex(results.length > 0 ? 0 : -1);
   }, [searchQuery, messages]);
@@ -146,7 +146,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     if (loggedInUserId) {
       // Check if E2EE is already enabled
       setIsE2EE(isE2EEEnabled());
-      
+
       // Initialize E2EE (generates keys if not present, uploads public key)
       initializeE2EE(loggedInUserId).then(() => {
         setIsE2EE(isE2EEEnabled());
@@ -157,17 +157,17 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Load messages from Supabase or localStorage on mount
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadMessages = async () => {
       if (isSupabaseConfigured() && loggedInUserId) {
         // Load from Supabase
         const supabaseMsgs = await supabaseMessages.getMessages(loggedInUserId, participantId);
         if (!isMounted) return;
-        
+
         // Decrypt messages if encrypted
         const formattedMsgs: Message[] = await Promise.all(supabaseMsgs.map(async (msg) => {
           let content = msg.content;
-          
+
           // Decrypt if message is encrypted and from another user
           if (msg.encrypted && msg.senderId !== loggedInUserId) {
             content = await decryptReceivedMessage({
@@ -179,7 +179,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               senderPublicKey: msg.senderPublicKey,
             }, msg.senderId);
           }
-          
+
           return {
             id: msg.id,
             senderId: msg.senderId,
@@ -189,9 +189,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             type: msg.type,
           };
         }));
-        
+
         setMessages(formattedMsgs);
-        
+
         // Mark all received messages as read when opening the chat
         // This sends read receipts to the sender
         const chatId = supabaseMessages.getChatId(loggedInUserId, participantId);
@@ -204,9 +204,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         setMessages(storedMessages);
       }
     };
-    
+
     loadMessages();
-    
+
     // Check if participant is online from Supabase
     const checkOnlineStatus = async () => {
       if (isSupabaseConfigured()) {
@@ -222,7 +222,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       }
     };
     checkOnlineStatus();
-    
+
     return () => {
       isMounted = false;
     };
@@ -231,12 +231,12 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Subscribe to participant's online status changes via Supabase
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    
+
     const unsubscribe = supabaseUsers.subscribeToUserStatus(participantId, (status, lastSeen) => {
       const wasOnline = isOnline;
       const nowOnline = status === 'online';
       setIsOnline(nowOnline);
-      
+
       // If recipient just came online, update pending messages to 'delivered'
       if (!wasOnline && nowOnline && loggedInUserId) {
         setMessages((prev) =>
@@ -257,7 +257,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Subscribe to message status changes (for read receipts from recipient)
   useEffect(() => {
     if (!isSupabaseConfigured() || !loggedInUserId) return;
-    
+
     const statusChannel = supabaseMessages.subscribeToMessageStatusChanges(
       loggedInUserId,
       (messageId, newStatus) => {
@@ -280,19 +280,19 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Listen for incoming messages (both Supabase real-time and localStorage)
   useEffect(() => {
     const liveChatService = getLiveChatService();
-    
+
     // Track processed message IDs to prevent duplicates
     const processedIds = new Set<string>();
-    
+
     // Subscribe to localStorage/BroadcastChannel updates
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       // Check if this message is for the current conversation
       if (chatId !== consistentChatId) return;
-      
+
       // Skip if already processed
       if (processedIds.has(message.id)) return;
       processedIds.add(message.id);
-      
+
       setMessages((prev) => {
         // Check for duplicates
         if (prev.some(m => m.id === message.id)) {
@@ -312,7 +312,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           // Skip if already processed
           if (processedIds.has(msg.id)) return;
           processedIds.add(msg.id);
-          
+
           const formattedMsg: Message = {
             id: msg.id,
             senderId: msg.senderId,
@@ -327,7 +327,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             }
             return [...prev, formattedMsg];
           });
-          
+
           // Mark message as read immediately since chat is open
           // This sends read receipt back to the sender
           supabaseMessages.markMessagesAsRead(chatId, loggedInUserId);
@@ -346,7 +346,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Listen for typing indicator
   useEffect(() => {
     const liveChatService = getLiveChatService();
-    
+
     const unsubTyping = liveChatService.onTyping((chatId, userId, typing) => {
       if (chatId !== consistentChatId) return;
       if (userId === participantId) {
@@ -362,7 +362,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Listen for online status changes
   useEffect(() => {
     const liveChatService = getLiveChatService();
-    
+
     const unsubOnline = liveChatService.onOnlineStatus((userId, online) => {
       if (userId === participantId) {
         setIsOnline(online);
@@ -383,15 +383,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Handle typing indicator emission
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
-    
+
     const liveChatService = getLiveChatService();
     liveChatService.sendTyping(consistentChatId, true);
-    
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // Stop typing indicator after 2 seconds of no input
     typingTimeoutRef.current = setTimeout(() => {
       liveChatService.sendTyping(consistentChatId, false);
@@ -410,7 +410,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
 
     // Store the message content before clearing input
     const messageContent = inputValue.trim();
-    
+
     // Generate client-side ID
     const messageId = `m-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -430,22 +430,22 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     // Add to local state immediately
     setMessages((prev) => [...prev, newMessage]);
     setInputValue('');
-    
+
     // Notify parent to update chat's lastMessage in the chat list
     if (onMessageSent) {
       onMessageSent(consistentChatId, newMessage);
     }
-    
+
     // Stop typing indicator
     const liveChatService = getLiveChatService();
     liveChatService.sendTyping(consistentChatId, false);
-    
+
     // Send message to Supabase if configured (with E2EE)
     if (isSupabaseConfigured()) {
       // Encrypt the message for the recipient
       const encryptAndSend = async () => {
         let encryptedPayload: any = { encrypted: false };
-        
+
         try {
           // Try to encrypt message using E2EE
           encryptedPayload = await encryptMessageForSending(
@@ -453,7 +453,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             participant.id,
             'text'
           );
-          
+
           console.log('🔐 Message encryption status:', {
             senderId: loggedInUser.id,
             recipientId: participant.id,
@@ -463,7 +463,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           console.warn('Encryption failed, sending unencrypted:', encryptErr);
           encryptedPayload = { encrypted: false };
         }
-        
+
         try {
           const result = await supabaseMessages.sendMessage(
             loggedInUser.id,
@@ -477,7 +477,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               senderPublicKey: encryptedPayload.senderPublicKey,
             } : undefined
           );
-          
+
           if (result.error) {
             console.error('Failed to send message to Supabase:', result.error);
           } else if (result.message) {
@@ -493,10 +493,10 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           console.error('Send message error:', err);
         }
       };
-      
+
       encryptAndSend();
     }
-    
+
     // Also send via live chat service for real-time updates to other tabs
     liveChatService.sendMessage(consistentChatId, newMessage, participant.id);
 
@@ -513,28 +513,28 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     // - If recipient is ONLINE: moves to 'delivered' (double tick)
     // - When recipient reads: moves to 'read' (blue/green double tick)
     const messageTimestamp = newMessage.timestamp.getTime();
-    
+
     // After a short delay, mark as 'sent' (message reached server)
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) =>
-          (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
-            ? { ...m, status: 'sent' } 
+          (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp))
+            ? { ...m, status: 'sent' }
             : m
         )
       );
-      
+
       // If recipient is online, mark as delivered after another short delay
       if (isOnline) {
         setTimeout(() => {
           setMessages((prev) =>
             prev.map((m) =>
-              (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
-                ? { ...m, status: 'delivered' } 
+              (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp))
+                ? { ...m, status: 'delivered' }
                 : m
             )
           );
-          
+
           // Update in Supabase if configured
           if (isSupabaseConfigured()) {
             supabaseMessages.updateMessageStatus(messageId, 'delivered').catch(console.error);
@@ -547,9 +547,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Handle clear chat
   const handleClearChat = async () => {
     if (!loggedInUser) return;
-    
+
     setIsClearing(true);
-    
+
     try {
       // Clear from Supabase if configured
       if (isSupabaseConfigured()) {
@@ -561,14 +561,14 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           return;
         }
       }
-      
+
       // Clear local messages
       setMessages([]);
-      
+
       // Clear from localStorage
       const liveChatService = getLiveChatService();
       localStorage.removeItem(`whatsapp_messages_${consistentChatId}`);
-      
+
       setShowClearConfirm(false);
     } catch (err) {
       console.error('Error clearing chat:', err);
@@ -581,7 +581,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   // Handle block user
   const handleBlockUser = async () => {
     if (!loggedInUser || isGroup) return;
-    
+
     // Update local settings
     updateSettings((prev) => ({
       ...prev,
@@ -590,7 +590,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         blockedUserIds: [...prev.privacy.blockedUserIds, participant.id],
       },
     }));
-    
+
     // Update in Supabase
     if (isSupabaseConfigured()) {
       const result = await supabaseUsers.blockUser(loggedInUser.id, participant.id);
@@ -600,14 +600,14 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         setIsBlockedBySupabase(true);
       }
     }
-    
+
     setShowBlockConfirm(false);
   };
 
   // Handle unblock user
   const handleUnblockUser = async () => {
     if (!loggedInUser || isGroup) return;
-    
+
     // Update local settings
     updateSettings((prev) => ({
       ...prev,
@@ -616,7 +616,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         blockedUserIds: prev.privacy.blockedUserIds.filter(id => id !== participant.id),
       },
     }));
-    
+
     // Update in Supabase
     if (isSupabaseConfigured()) {
       const result = await supabaseUsers.unblockUser(loggedInUser.id, participant.id);
@@ -682,7 +682,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
 
-        <div 
+        <div
           className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => !isGroup && setShowContactProfile(true)}
         >
@@ -733,7 +733,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           >
             <Phone className="h-5 w-5" />
           </button>
-          
+
           {/* More options dropdown */}
           <div className="relative" ref={menuRef}>
             <button
@@ -744,7 +744,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             >
               <MoreVertical className="h-5 w-5" />
             </button>
-            
+
             {showMenu && (
               <div className="absolute right-0 top-12 w-56 glass-panel rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* View Contact */}
@@ -761,7 +761,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                     <span className="text-sm text-foreground">View Contact</span>
                   </button>
                 )}
-                
+
                 {/* Search */}
                 <button
                   type="button"
@@ -774,7 +774,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                   <Search className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm text-foreground">Search</span>
                 </button>
-                
+
                 {/* Clear Chat */}
                 <button
                   type="button"
@@ -790,9 +790,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                     {isClearing ? 'Clearing...' : 'Clear Chat'}
                   </span>
                 </button>
-                
+
                 <div className="h-px bg-border my-2" />
-                
+
                 {/* Block/Unblock */}
                 {!isGroup && (
                   <button
@@ -959,15 +959,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden w-full">
         <Virtuoso
-          className="h-full px-4 py-4 scrollbar-hide"
+          className="h-full px-2 sm:px-4 md:px-6 lg:px-8 py-4 scrollbar-hide"
           data={displayMessages}
           followOutput="smooth"
           itemContent={(index, message) => {
             const isSearchMatch = searchResults.includes(index);
             const isCurrentSearchMatch = searchResults[currentSearchIndex] === index;
-            
+
             return (
               <div
                 className={cn(
