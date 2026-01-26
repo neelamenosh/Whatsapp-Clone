@@ -12,6 +12,12 @@ import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseMessages from '@/lib/supabase/messages';
 import * as supabaseUsers from '@/lib/supabase/users';
+import { 
+  encryptMessageForSending, 
+  decryptReceivedMessage, 
+  isE2EEEnabled,
+  initializeE2EE,
+} from '@/lib/encryption';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { ContactProfileModal } from './contact-profile-modal';
@@ -32,7 +38,9 @@ import {
   Ban,
   Unlock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 
 interface ConversationViewProps {
@@ -48,6 +56,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   const [isOnline, setIsOnline] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showContactProfile, setShowContactProfile] = useState(false);
+  const [isE2EE, setIsE2EE] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
@@ -132,6 +141,19 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     }
   }, [loggedInUserId, participantId, isGroup]);
 
+  // Initialize E2EE on mount
+  useEffect(() => {
+    if (loggedInUserId) {
+      // Check if E2EE is already enabled
+      setIsE2EE(isE2EEEnabled());
+      
+      // Initialize E2EE (generates keys if not present, uploads public key)
+      initializeE2EE(loggedInUserId).then(() => {
+        setIsE2EE(isE2EEEnabled());
+      }).catch(console.error);
+    }
+  }, [loggedInUserId]);
+
   // Load messages from Supabase or localStorage on mount
   useEffect(() => {
     let isMounted = true;
@@ -141,14 +163,33 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         // Load from Supabase
         const supabaseMsgs = await supabaseMessages.getMessages(loggedInUserId, participantId);
         if (!isMounted) return;
-        const formattedMsgs: Message[] = supabaseMsgs.map(msg => ({
-          id: msg.id,
-          senderId: msg.senderId,
-          content: msg.content,
-          timestamp: new Date(msg.createdAt),
-          status: msg.status,
-          type: msg.type,
+        
+        // Decrypt messages if encrypted
+        const formattedMsgs: Message[] = await Promise.all(supabaseMsgs.map(async (msg) => {
+          let content = msg.content;
+          
+          // Decrypt if message is encrypted and from another user
+          if (msg.encrypted && msg.senderId !== loggedInUserId) {
+            content = await decryptReceivedMessage({
+              content: msg.content,
+              type: msg.type,
+              encrypted: msg.encrypted,
+              ciphertext: msg.ciphertext,
+              nonce: msg.nonce,
+              senderPublicKey: msg.senderPublicKey,
+            }, msg.senderId);
+          }
+          
+          return {
+            id: msg.id,
+            senderId: msg.senderId,
+            content: content,
+            timestamp: new Date(msg.createdAt),
+            status: msg.status,
+            type: msg.type,
+          };
         }));
+        
         setMessages(formattedMsgs);
         
         // Mark all received messages as read when opening the chat
@@ -399,32 +440,54 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     const liveChatService = getLiveChatService();
     liveChatService.sendTyping(consistentChatId, false);
     
-    // Send message to Supabase if configured
+    // Send message to Supabase if configured (with E2EE)
     if (isSupabaseConfigured()) {
-      console.log('Sending message to Supabase:', {
-        senderId: loggedInUser.id,
-        recipientId: participant.id,
-        content: messageContent,
-      });
-      
-      supabaseMessages.sendMessage(
-        loggedInUser.id,
-        participant.id,
-        messageContent,
-        'text'
-      ).then(result => {
-        if (result.error) {
-          console.error('Failed to send message to Supabase:', result.error);
-        } else if (result.message) {
-          console.log('Message sent to Supabase successfully:', result.message);
-          // Update message ID to match Supabase
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === messageId ? { ...m, id: result.message!.id } : m
-            )
+      // Encrypt the message for the recipient
+      const encryptAndSend = async () => {
+        try {
+          // Encrypt message using E2EE
+          const encryptedPayload = await encryptMessageForSending(
+            messageContent,
+            participant.id,
+            'text'
           );
+          
+          console.log('🔐 Sending encrypted message to Supabase:', {
+            senderId: loggedInUser.id,
+            recipientId: participant.id,
+            encrypted: encryptedPayload.encrypted,
+          });
+          
+          const result = await supabaseMessages.sendMessage(
+            loggedInUser.id,
+            participant.id,
+            messageContent, // Store plaintext locally for sender's view
+            'text',
+            encryptedPayload.encrypted ? {
+              encrypted: true,
+              ciphertext: encryptedPayload.ciphertext,
+              nonce: encryptedPayload.nonce,
+              senderPublicKey: encryptedPayload.senderPublicKey,
+            } : undefined
+          );
+          
+          if (result.error) {
+            console.error('Failed to send message to Supabase:', result.error);
+          } else if (result.message) {
+            console.log('🔐 Encrypted message sent successfully:', result.message.id);
+            // Update message ID to match Supabase
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId ? { ...m, id: result.message!.id } : m
+              )
+            );
+          }
+        } catch (err) {
+          console.error('Encryption/send error:', err);
         }
-      });
+      };
+      
+      encryptAndSend();
     }
     
     // Also send via live chat service for real-time updates to other tabs
@@ -631,7 +694,14 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           </div>
 
           <div className="min-w-0">
-            <h2 className="font-semibold text-foreground truncate">{displayName}</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-semibold text-foreground truncate">{displayName}</h2>
+              {isE2EE && (
+                <div className="flex items-center" title="End-to-end encrypted">
+                  <Lock className="h-3.5 w-3.5 text-primary" />
+                </div>
+              )}
+            </div>
             <p className={cn(
               'text-xs',
               isOnline ? 'text-online' : 'text-muted-foreground'
@@ -911,6 +981,17 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           components={{
             Header: () => (
               <div className="space-y-4">
+                {/* E2EE Banner */}
+                {isE2EE && (
+                  <div className="flex justify-center">
+                    <div className="flex items-center gap-2 glass-card px-4 py-2 text-xs text-muted-foreground bg-primary/5 border-primary/20">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <span>
+                        Messages are end-to-end encrypted. No one outside of this chat can read them.
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {isBlocked && (
                   <div className="flex justify-center">
                     <div className="glass-card px-4 py-2 text-xs text-muted-foreground">

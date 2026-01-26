@@ -10,6 +10,11 @@ export interface Message {
   type: 'text' | 'image' | 'video' | 'audio' | 'document';
   status: 'sent' | 'delivered' | 'read';
   createdAt: string;
+  // E2EE fields
+  encrypted?: boolean;
+  ciphertext?: string;
+  nonce?: string;
+  senderPublicKey?: string;
 }
 
 interface DbMessage {
@@ -21,6 +26,11 @@ interface DbMessage {
   type: string;
   status: string;
   created_at: string;
+  // E2EE fields
+  encrypted?: boolean;
+  ciphertext?: string;
+  nonce?: string;
+  sender_public_key?: string;
 }
 
 function dbToMessage(dbMsg: DbMessage): Message {
@@ -33,6 +43,11 @@ function dbToMessage(dbMsg: DbMessage): Message {
     type: dbMsg.type as Message['type'],
     status: dbMsg.status as Message['status'],
     createdAt: dbMsg.created_at,
+    // E2EE fields
+    encrypted: dbMsg.encrypted || false,
+    ciphertext: dbMsg.ciphertext,
+    nonce: dbMsg.nonce,
+    senderPublicKey: dbMsg.sender_public_key,
   };
 }
 
@@ -41,12 +56,21 @@ export function getChatId(userId1: string, userId2: string): string {
   return [userId1, userId2].sort().join('_');
 }
 
-// Send a message
+// E2EE message payload interface
+export interface E2EEPayload {
+  encrypted: boolean;
+  ciphertext?: string;
+  nonce?: string;
+  senderPublicKey?: string;
+}
+
+// Send a message (with optional E2EE)
 export async function sendMessage(
   senderId: string,
   recipientId: string,
   content: string,
-  type: Message['type'] = 'text'
+  type: Message['type'] = 'text',
+  e2eePayload?: E2EEPayload
 ): Promise<{ message: Message | null; error: string | null }> {
   if (!isSupabaseConfigured() || !supabase) {
     return { message: null, error: 'Database not configured' };
@@ -55,16 +79,26 @@ export async function sendMessage(
   try {
     const chatId = getChatId(senderId, recipientId);
 
+    const insertData: any = {
+      chat_id: chatId,
+      sender_id: senderId,
+      recipient_id: recipientId,
+      content,
+      type,
+      status: 'sent',
+    };
+
+    // Add E2EE fields if message is encrypted
+    if (e2eePayload?.encrypted) {
+      insertData.encrypted = true;
+      insertData.ciphertext = e2eePayload.ciphertext;
+      insertData.nonce = e2eePayload.nonce;
+      insertData.sender_public_key = e2eePayload.senderPublicKey;
+    }
+
     const { data, error } = await supabase
       .from('messages')
-      .insert({
-        chat_id: chatId,
-        sender_id: senderId,
-        recipient_id: recipientId,
-        content,
-        type,
-        status: 'sent',
-      })
+      .insert(insertData)
       .select()
       .single();
 

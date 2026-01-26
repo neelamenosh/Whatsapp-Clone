@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Messages table (using TEXT for sender/recipient to support flexible IDs)
+-- E2EE: Messages store ciphertext, nonce, and sender's public key
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   chat_id TEXT NOT NULL,
@@ -28,9 +29,52 @@ CREATE TABLE IF NOT EXISTS messages (
   content TEXT NOT NULL,
   type TEXT DEFAULT 'text',
   status TEXT DEFAULT 'sent',
+  -- E2EE fields
+  encrypted BOOLEAN DEFAULT false,
+  ciphertext TEXT,
+  nonce TEXT,
+  sender_public_key TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ===========================================
+-- E2EE PUBLIC KEYS TABLE
+-- ===========================================
+-- Stores users' public keys for end-to-end encryption
+-- IMPORTANT: Private keys are NEVER stored on the server
+
+CREATE TABLE IF NOT EXISTS user_public_keys (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  device_id TEXT DEFAULT 'default',
+  public_key TEXT NOT NULL,
+  key_type TEXT DEFAULT 'X25519',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, device_id)
+);
+
+-- Indexes for public keys
+CREATE INDEX IF NOT EXISTS idx_user_public_keys_user_id ON user_public_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_public_keys_active ON user_public_keys(user_id, is_active);
+
+-- Enable RLS for public keys
+ALTER TABLE user_public_keys ENABLE ROW LEVEL SECURITY;
+
+-- Policies for user_public_keys
+CREATE POLICY "Public keys are viewable by everyone" ON user_public_keys
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their public keys" ON user_public_keys
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can update their public keys" ON user_public_keys
+  FOR UPDATE USING (true);
+
+-- Enable Realtime for public keys (for key updates)
+ALTER PUBLICATION supabase_realtime ADD TABLE user_public_keys;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
