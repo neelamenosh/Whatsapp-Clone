@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { TabType, Chat, User } from '@/lib/types';
@@ -25,6 +25,16 @@ export function AppShell() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Use ref to track processed message IDs to prevent duplicate updates
+  const processedMessageIds = useRef(new Set<string>());
+  // Use ref to store current selectedChatId for use in callbacks
+  const selectedChatIdRef = useRef<string | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId;
+  }, [selectedChatId]);
 
   // Check if user is logged in and load chats
   useEffect(() => {
@@ -65,6 +75,16 @@ export function AppShell() {
       const currentUserNow = getCurrentUser();
       if (!currentUserNow) return;
       
+      // Skip if already processed
+      if (processedMessageIds.current.has(message.id)) return;
+      processedMessageIds.current.add(message.id);
+      
+      // Limit set size to prevent memory leak
+      if (processedMessageIds.current.size > 1000) {
+        const arr = Array.from(processedMessageIds.current);
+        processedMessageIds.current = new Set(arr.slice(-500));
+      }
+      
       setChats((prev) => {
         // Find chat by ID or by matching the consistent chat ID with participants
         let chatIndex = prev.findIndex(c => c.id === chatId);
@@ -95,11 +115,12 @@ export function AppShell() {
         }
         
         const updated = [...prev];
+        const currentSelectedId = selectedChatIdRef.current;
         updated[chatIndex] = {
           ...updated[chatIndex],
           lastMessage: message,
           updatedAt: new Date(),
-          unreadCount: selectedChatId === chatId || selectedChatId === updated[chatIndex].id
+          unreadCount: currentSelectedId === chatId || currentSelectedId === updated[chatIndex].id
             ? updated[chatIndex].unreadCount 
             : (senderId !== currentUserNow?.id ? updated[chatIndex].unreadCount + 1 : updated[chatIndex].unreadCount),
         };
@@ -107,8 +128,7 @@ export function AppShell() {
         // Sort by updatedAt
         updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         
-        // Persist to localStorage
-        saveUserChats(updated);
+        // Persistence is handled by debounced useEffect
         
         return updated;
       });
@@ -175,7 +195,7 @@ export function AppShell() {
           return prev;
         }
         const updated = [newChat, ...prev];
-        saveUserChats(updated);
+        // Persistence handled by debounced useEffect
         return updated;
       });
     };
@@ -218,7 +238,7 @@ export function AppShell() {
         }
         
         const updated = [newChat, ...prev];
-        saveUserChats(updated);
+        // Persistence handled by debounced useEffect
         return updated;
       });
     });
@@ -228,13 +248,28 @@ export function AppShell() {
       unsubNewChat();
       if (supabaseUnsubscribe) supabaseUnsubscribe();
     };
-  }, [isLoading, selectedChatId]);
+  }, [isLoading]);  // Removed selectedChatId to prevent re-subscribing
 
-  // Save chats when they change
+  // Debounced save - only save after changes settle to prevent flickering
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     if (!isLoading && chats.length > 0) {
-      saveUserChats(chats);
+      // Clear any pending save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      // Debounce save to prevent multiple rapid saves causing re-renders
+      saveTimeoutRef.current = setTimeout(() => {
+        saveUserChats(chats);
+      }, 500);
     }
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [chats, isLoading]);
 
   const selectedChat = selectedChatId ? (chats.find(c => c.id === selectedChatId) || getChatById(selectedChatId)) : null;

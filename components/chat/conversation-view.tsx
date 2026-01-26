@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Chat, Message } from '@/lib/types';
 import { currentUser } from '@/lib/mock-data';
@@ -66,13 +66,19 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
   
-  // Check blocked status from both local settings and Supabase
-  const isBlocked = !isGroup && (settings.privacy.blockedUserIds.includes(participant.id) || isBlockedBySupabase);
+  // Memoize participant ID to prevent unnecessary re-renders
+  const participantId = useMemo(() => participant.id, [participant.id]);
+  const loggedInUserId = useMemo(() => loggedInUser?.id, [loggedInUser?.id]);
   
-  // Get consistent chat ID for message storage
-  const consistentChatId = !isGroup && loggedInUser 
-    ? getConsistentChatId(loggedInUser.id, participant.id) 
-    : chat.id;
+  // Check blocked status from both local settings and Supabase
+  const isBlocked = !isGroup && (settings.privacy.blockedUserIds.includes(participantId) || isBlockedBySupabase);
+  
+  // Get consistent chat ID for message storage - memoized to prevent recalculation
+  const consistentChatId = useMemo(() => {
+    return !isGroup && loggedInUserId 
+      ? getConsistentChatId(loggedInUserId, participantId) 
+      : chat.id;
+  }, [isGroup, loggedInUserId, participantId, chat.id]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -118,19 +124,22 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
 
   // Check blocked status from Supabase on mount
   useEffect(() => {
-    if (isSupabaseConfigured() && loggedInUser && !isGroup) {
-      supabaseUsers.isUserBlocked(loggedInUser.id, participant.id).then(blocked => {
+    if (isSupabaseConfigured() && loggedInUserId && !isGroup) {
+      supabaseUsers.isUserBlocked(loggedInUserId, participantId).then(blocked => {
         setIsBlockedBySupabase(blocked);
       });
     }
-  }, [loggedInUser, participant.id, isGroup]);
+  }, [loggedInUserId, participantId, isGroup]);
 
   // Load messages from Supabase or localStorage on mount
   useEffect(() => {
+    let isMounted = true;
+    
     const loadMessages = async () => {
-      if (isSupabaseConfigured() && loggedInUser) {
+      if (isSupabaseConfigured() && loggedInUserId) {
         // Load from Supabase
-        const supabaseMsgs = await supabaseMessages.getMessages(loggedInUser.id, participant.id);
+        const supabaseMsgs = await supabaseMessages.getMessages(loggedInUserId, participantId);
+        if (!isMounted) return;
         const formattedMsgs: Message[] = supabaseMsgs.map(msg => ({
           id: msg.id,
           senderId: msg.senderId,
@@ -144,6 +153,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
         // Fallback to localStorage
         const liveChatService = getLiveChatService();
         const storedMessages = liveChatService.getMessages(consistentChatId);
+        if (!isMounted) return;
         setMessages(storedMessages);
       }
     };
@@ -153,43 +163,52 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     // Check if participant is online from Supabase
     const checkOnlineStatus = async () => {
       if (isSupabaseConfigured()) {
-        const statusData = await supabaseUsers.getUserStatus(participant.id);
+        const statusData = await supabaseUsers.getUserStatus(participantId);
+        if (!isMounted) return;
         if (statusData) {
           setIsOnline(statusData.status === 'online');
         }
       } else {
         const liveChatService = getLiveChatService();
-        setIsOnline(liveChatService.isUserOnline(participant.id));
+        if (!isMounted) return;
+        setIsOnline(liveChatService.isUserOnline(participantId));
       }
     };
     checkOnlineStatus();
-  }, [consistentChatId, participant.id, loggedInUser]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [consistentChatId, participantId, loggedInUserId]);
 
   // Subscribe to participant's online status changes via Supabase
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     
-    const unsubscribe = supabaseUsers.subscribeToUserStatus(participant.id, (status, lastSeen) => {
+    const unsubscribe = supabaseUsers.subscribeToUserStatus(participantId, (status, lastSeen) => {
       setIsOnline(status === 'online');
-      // Update participant's lastSeen if needed
-      if (participant.lastSeen !== lastSeen) {
-        participant.lastSeen = new Date(lastSeen);
-      }
     });
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [participant.id]);
+  }, [participantId]);
 
   // Listen for incoming messages (both Supabase real-time and localStorage)
   useEffect(() => {
     const liveChatService = getLiveChatService();
     
+    // Track processed message IDs to prevent duplicates
+    const processedIds = new Set<string>();
+    
     // Subscribe to localStorage/BroadcastChannel updates
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       // Check if this message is for the current conversation
       if (chatId !== consistentChatId) return;
+      
+      // Skip if already processed
+      if (processedIds.has(message.id)) return;
+      processedIds.add(message.id);
       
       setMessages((prev) => {
         // Check for duplicates
@@ -202,11 +221,15 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
 
     // Subscribe to Supabase real-time updates if configured
     let supabaseChannel: ReturnType<typeof supabaseMessages.subscribeToChat> = null;
-    if (isSupabaseConfigured() && loggedInUser) {
-      const chatId = supabaseMessages.getChatId(loggedInUser.id, participant.id);
+    if (isSupabaseConfigured() && loggedInUserId) {
+      const chatId = supabaseMessages.getChatId(loggedInUserId, participantId);
       supabaseChannel = supabaseMessages.subscribeToChat(chatId, (msg) => {
         // Only add if not from current user (to avoid duplicates)
-        if (msg.senderId !== loggedInUser.id) {
+        if (msg.senderId !== loggedInUserId) {
+          // Skip if already processed
+          if (processedIds.has(msg.id)) return;
+          processedIds.add(msg.id);
+          
           const formattedMsg: Message = {
             id: msg.id,
             senderId: msg.senderId,
@@ -231,7 +254,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
         supabaseMessages.unsubscribe(supabaseChannel);
       }
     };
-  }, [consistentChatId, loggedInUser, participant.id]);
+  }, [consistentChatId, loggedInUserId, participantId]);
 
   // Listen for typing indicator
   useEffect(() => {
@@ -239,7 +262,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     
     const unsubTyping = liveChatService.onTyping((chatId, userId, typing) => {
       if (chatId !== consistentChatId) return;
-      if (userId === participant.id) {
+      if (userId === participantId) {
         setIsTyping(typing);
       }
     });
@@ -247,28 +270,28 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     return () => {
       unsubTyping();
     };
-  }, [consistentChatId, participant.id]);
+  }, [consistentChatId, participantId]);
 
   // Listen for online status changes
   useEffect(() => {
     const liveChatService = getLiveChatService();
     
     const unsubOnline = liveChatService.onOnlineStatus((userId, online) => {
-      if (userId === participant.id) {
+      if (userId === participantId) {
         setIsOnline(online);
       }
     });
 
-    // Periodically check online status
+    // Periodically check online status - reduced frequency to prevent flickering
     const interval = setInterval(() => {
-      setIsOnline(liveChatService.isUserOnline(participant.id));
-    }, 5000);
+      setIsOnline(liveChatService.isUserOnline(participantId));
+    }, 10000);
 
     return () => {
       unsubOnline();
       clearInterval(interval);
     };
-  }, [participant.id]);
+  }, [participantId]);
 
   // Handle typing indicator emission
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,11 +387,16 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
       );
     }
 
-    // Update message status
+    // Update message status - use functional update to find message by content/timestamp
+    // to handle cases where ID might have been updated by Supabase
+    const messageTimestamp = newMessage.timestamp.getTime();
+    
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === newMessage.id ? { ...m, status: 'sent' } : m
+          (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
+            ? { ...m, status: 'sent' } 
+            : m
         )
       );
     }, 300);
@@ -376,7 +404,9 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === newMessage.id ? { ...m, status: 'delivered' } : m
+          (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
+            ? { ...m, status: 'delivered' } 
+            : m
         )
       );
     }, 800);
@@ -385,7 +415,9 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
       if (settings.privacy.readReceipts) {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === newMessage.id ? { ...m, status: 'read' } : m
+            (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
+              ? { ...m, status: 'read' } 
+              : m
           )
         );
       }

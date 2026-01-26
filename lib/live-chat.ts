@@ -33,6 +33,7 @@ class LiveChatService {
   private broadcastChannel: BroadcastChannel | null = null;
   private pollingInterval: number | null = null;
   private lastPollTime = 0;
+  private processedMessageIds = new Set<string>();
 
   private constructor() {
     this.init();
@@ -88,10 +89,10 @@ class LiveChatService {
   private startPolling() {
     if (this.pollingInterval) return;
     
-    // Poll for new messages every 500ms
+    // Poll for new messages every 2 seconds (reduced from 500ms to prevent flickering)
     this.pollingInterval = window.setInterval(() => {
       this.checkForNewMessages();
-    }, 500);
+    }, 2000);
   }
 
   private checkForNewMessages() {
@@ -122,6 +123,16 @@ class LiveChatService {
         if (data.message) {
           // Don't notify for our own messages
           if (data.message.senderId === currentUser.id) return;
+          
+          // Skip if already processed
+          if (this.processedMessageIds.has(data.message.id)) return;
+          this.processedMessageIds.add(data.message.id);
+          
+          // Limit set size to prevent memory leak
+          if (this.processedMessageIds.size > 500) {
+            const arr = Array.from(this.processedMessageIds);
+            this.processedMessageIds = new Set(arr.slice(-250));
+          }
           
           // Use the consistent chat ID or the provided chatId
           const consistentChatId = data.chatId || getConsistentChatId(currentUser.id, data.message.senderId);
