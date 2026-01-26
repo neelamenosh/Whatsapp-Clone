@@ -45,9 +45,9 @@ export function AppShell() {
       // Set current user data in mock-data
       setCurrentUserData(currentUser);
       
-      // Load user's chats from localStorage
-      const userChats = getUserChats();
-      setChats(userChats);
+      // Load user's chats from localStorage first
+      const localChats = getUserChats();
+      setChats(localChats);
       
       // Initialize live chat service
       getLiveChatService();
@@ -55,6 +55,81 @@ export function AppShell() {
       // Initialize presence tracking (sets user online and tracks visibility)
       const cleanupPresence = initPresenceTracking();
       
+      // Load chats from Supabase to get messages from other users
+      const loadSupabaseChats = async () => {
+        if (isSupabaseConfigured()) {
+          try {
+            // Get all chats/conversations from Supabase
+            const supabaseChats = await supabaseMessages.getUserChats(currentUser.id);
+            
+            if (supabaseChats.length > 0) {
+              // For each chat, get the other user's info and create chat objects
+              const newChats: Chat[] = [];
+              
+              for (const chatData of supabaseChats) {
+                // Check if this chat already exists in local chats
+                const existsLocally = localChats.some(c => 
+                  c.participants[0]?.id === chatData.recipientId ||
+                  c.id === chatData.lastMessage.chatId
+                );
+                
+                if (!existsLocally) {
+                  // Fetch the other user's info
+                  const otherUser = await supabaseUsers.getUserById(chatData.recipientId);
+                  
+                  if (otherUser) {
+                    const chat: Chat = {
+                      id: chatData.lastMessage.chatId,
+                      type: 'individual',
+                      participants: [{
+                        id: otherUser.id,
+                        name: otherUser.displayName,
+                        email: otherUser.email,
+                        avatar: otherUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+                        status: otherUser.status || 'online',
+                        about: otherUser.bio || 'Available',
+                        phone: otherUser.phone,
+                      }],
+                      lastMessage: {
+                        id: chatData.lastMessage.id,
+                        senderId: chatData.lastMessage.senderId,
+                        content: chatData.lastMessage.content,
+                        timestamp: new Date(chatData.lastMessage.createdAt),
+                        status: chatData.lastMessage.status,
+                        type: chatData.lastMessage.type,
+                      },
+                      unreadCount: chatData.lastMessage.senderId !== currentUser.id ? 1 : 0,
+                      isPinned: false,
+                      isMuted: false,
+                      updatedAt: new Date(chatData.lastMessage.createdAt),
+                    };
+                    newChats.push(chat);
+                  }
+                }
+              }
+              
+              if (newChats.length > 0) {
+                setChats(prev => {
+                  // Merge new chats with existing, avoiding duplicates
+                  const merged = [...prev];
+                  for (const newChat of newChats) {
+                    if (!merged.some(c => c.id === newChat.id || c.participants[0]?.id === newChat.participants[0]?.id)) {
+                      merged.push(newChat);
+                    }
+                  }
+                  // Sort by updatedAt
+                  merged.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                  return merged;
+                });
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load Supabase chats:', err);
+          }
+        }
+      };
+      
+      loadSupabaseChats();
       setIsLoading(false);
       
       return () => {
@@ -139,16 +214,6 @@ export function AppShell() {
       const currentUserNow = getCurrentUser();
       if (!currentUserNow || senderId === currentUserNow.id) return;
       
-      // Check if chat already exists
-      const existingChat = chats.find(c => {
-        if (c.id === chatId) return true;
-        if (c.type !== 'individual') return false;
-        const participant = c.participants[0];
-        return participant.id === senderId || getConsistentChatId(currentUserNow.id, participant.id) === chatId;
-      });
-      
-      if (existingChat) return;
-      
       // Fetch sender's info from Supabase or local
       let senderUser: User | null = null;
       
@@ -189,13 +254,28 @@ export function AppShell() {
         updatedAt: new Date(),
       };
       
+      // Use functional update to check current state and avoid stale closure
       setChats((prev) => {
-        // Double check it doesn't exist
-        if (prev.some(c => c.id === chatId || prev.some(c => c.participants[0]?.id === senderId))) {
+        // Check if chat already exists in current state
+        const existingChat = prev.find(c => {
+          if (c.id === chatId) return true;
+          if (c.type !== 'individual') return false;
+          const participant = c.participants[0];
+          return participant.id === senderId || getConsistentChatId(currentUserNow.id, participant.id) === chatId;
+        });
+        
+        if (existingChat) {
+          return prev; // Don't add, already exists
+        }
+        
+        // Double check it doesn't exist by participant ID
+        if (prev.some(c => c.participants[0]?.id === senderId)) {
           return prev;
         }
+        
         const updated = [newChat, ...prev];
-        // Persistence handled by debounced useEffect
+        // Sort by updatedAt
+        updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         return updated;
       });
     };
