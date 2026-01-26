@@ -108,7 +108,7 @@ export async function encryptMessageForSending(
 
 /**
  * Decrypt a received message
- * Returns the plaintext content
+ * Returns the plaintext content, or fallback content if decryption fails
  */
 export async function decryptReceivedMessage(
   encryptedPayload: E2EEMessagePayload,
@@ -119,21 +119,26 @@ export async function decryptReceivedMessage(
     return encryptedPayload.content;
   }
   
+  // Fallback to stored content if decryption isn't possible
+  const fallbackContent = encryptedPayload.content;
+  
   // Check if we have E2EE enabled
   if (!isE2EEEnabled()) {
-    console.warn('E2EE not enabled, cannot decrypt');
-    return '[Cannot decrypt - E2EE not set up]';
+    console.log('E2EE not enabled, using fallback content');
+    return fallbackContent;
   }
   
   const myPrivateKey = getMyPrivateKey();
   
   if (!myPrivateKey) {
-    return '[Cannot decrypt - no private key]';
+    console.log('No private key, using fallback content');
+    return fallbackContent;
   }
   
   // Validate encrypted payload
   if (!encryptedPayload.ciphertext || !encryptedPayload.nonce || !encryptedPayload.senderPublicKey) {
-    return '[Invalid encrypted message]';
+    console.log('Invalid encrypted payload, using fallback content');
+    return fallbackContent;
   }
   
   try {
@@ -150,13 +155,14 @@ export async function decryptReceivedMessage(
     }, sharedKey);
     
     if (!decrypted.verified) {
-      return '[Message could not be verified]';
+      console.log('Decryption unverified, using fallback content');
+      return fallbackContent;
     }
     
     return decrypted.plaintext;
   } catch (error) {
-    console.error('Decryption failed:', error);
-    return '[Unable to decrypt message]';
+    console.error('Decryption failed, using fallback:', error);
+    return fallbackContent;
   }
 }
 

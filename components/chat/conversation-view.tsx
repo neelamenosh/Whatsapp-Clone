@@ -170,7 +170,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           
           // Decrypt if message is encrypted and from another user
           if (msg.encrypted && msg.senderId !== loggedInUserId) {
-            const decrypted = await decryptReceivedMessage({
+            content = await decryptReceivedMessage({
               content: msg.content,
               type: msg.type,
               encrypted: msg.encrypted,
@@ -178,16 +178,6 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               nonce: msg.nonce,
               senderPublicKey: msg.senderPublicKey,
             }, msg.senderId);
-            
-            // If decryption failed, fall back to stored content (if it's not the placeholder)
-            if (decrypted.startsWith('[') && decrypted.includes('decrypt')) {
-              // Decryption failed - use original content if available and not placeholder
-              content = (msg.content && msg.content !== '🔒 Encrypted message') 
-                ? msg.content 
-                : decrypted;
-            } else {
-              content = decrypted;
-            }
           }
           
           return {
