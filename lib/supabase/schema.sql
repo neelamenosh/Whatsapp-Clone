@@ -122,3 +122,46 @@ CREATE POLICY "Users can delete from blocked list" ON blocked_users
 
 -- Enable Realtime for blocked_users table
 ALTER PUBLICATION supabase_realtime ADD TABLE blocked_users;
+
+-- ===========================================
+-- STORAGE BUCKET FOR AVATARS
+-- ===========================================
+-- Note: Run these commands in Supabase Dashboard -> Storage -> Create Bucket
+-- Or use the SQL below after enabling storage
+
+-- Create storage bucket for avatars (run in Supabase Dashboard)
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+
+-- Storage policy to allow anyone to view avatars
+-- CREATE POLICY "Avatar images are publicly accessible" 
+--   ON storage.objects FOR SELECT 
+--   USING (bucket_id = 'avatars');
+
+-- Storage policy to allow authenticated users to upload avatars
+-- CREATE POLICY "Anyone can upload an avatar" 
+--   ON storage.objects FOR INSERT 
+--   WITH CHECK (bucket_id = 'avatars');
+
+-- Storage policy to allow users to update their avatars
+-- CREATE POLICY "Anyone can update avatars" 
+--   ON storage.objects FOR UPDATE 
+--   USING (bucket_id = 'avatars');
+
+-- Storage policy to allow users to delete avatars
+-- CREATE POLICY "Anyone can delete avatars" 
+--   ON storage.objects FOR DELETE 
+--   USING (bucket_id = 'avatars');
+
+-- ===========================================
+-- ALTERNATIVE: Create bucket via SQL (requires superuser)
+-- ===========================================
+-- If you have superuser access, uncomment and run these:
+
+-- INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+-- VALUES (
+--   'avatars', 
+--   'avatars', 
+--   true,
+--   5242880,  -- 5MB limit
+--   ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+-- ) ON CONFLICT (id) DO NOTHING;

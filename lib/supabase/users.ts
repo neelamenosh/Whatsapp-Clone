@@ -431,6 +431,132 @@ export async function getBlockedUserIds(userId: string): Promise<string[]> {
   }
 }
 
+// Upload avatar image to Supabase Storage and return public URL
+export async function uploadAvatar(
+  userId: string,
+  file: File
+): Promise<{ url: string | null; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { url: null, error: 'Database not configured' };
+  }
+
+  try {
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return { url: null, error: 'Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.' };
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return { url: null, error: 'File too large. Maximum size is 5MB.' };
+    }
+
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return { url: null, error: uploadError.message };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // Update user's avatar in database
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ avatar: publicUrl })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      return { url: null, error: 'Failed to update profile with new avatar' };
+    }
+
+    return { url: publicUrl, error: null };
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    return { url: null, error: 'Failed to upload avatar' };
+  }
+}
+
+// Upload avatar from base64 data (for cropped images)
+export async function uploadAvatarBase64(
+  userId: string,
+  base64Data: string,
+  mimeType: string = 'image/jpeg'
+): Promise<{ url: string | null; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { url: null, error: 'Database not configured' };
+  }
+
+  try {
+    // Convert base64 to blob
+    const base64Response = await fetch(base64Data);
+    const blob = await base64Response.blob();
+
+    // Validate size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (blob.size > maxSize) {
+      return { url: null, error: 'Image too large. Maximum size is 5MB.' };
+    }
+
+    // Generate unique filename
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const fileName = `${userId}-${Date.now()}.${ext}`;
+    const filePath = `avatars/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, blob, {
+        contentType: mimeType,
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return { url: null, error: uploadError.message };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // Update user's avatar in database
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ avatar: publicUrl })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      return { url: null, error: 'Failed to update profile with new avatar' };
+    }
+
+    return { url: publicUrl, error: null };
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    return { url: null, error: 'Failed to upload avatar' };
+  }
+}
+
 // Subscribe to blocked users changes (real-time)
 export function subscribeToBlockedUsers(
   userId: string,

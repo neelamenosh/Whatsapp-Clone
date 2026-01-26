@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { getCurrentUser, setCurrentUser, getAllRegisteredUsers } from '@/lib/auth-store';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import * as supabaseUsers from '@/lib/supabase/users';
 import type { User } from '@/lib/types';
 import { 
   X, 
@@ -14,7 +16,9 @@ import {
   Phone,
   Info,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload,
+  Loader2
 } from 'lucide-react';
 
 type ProfileModalProps = {
@@ -61,8 +65,11 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
   const [aboutValue, setAboutValue] = React.useState('');
   const [showAvatarPicker, setShowAvatarPicker] = React.useState(false);
   const [showAboutOptions, setShowAboutOptions] = React.useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
   const nameInputRef = React.useRef<HTMLInputElement>(null);
   const aboutInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Load current user on open
   React.useEffect(() => {
@@ -121,7 +128,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
     setUser(updatedUser);
     setCurrentUser(updatedUser);
     
-    // Also update in registered users list
+    // Also update in registered users list (localStorage)
     if (typeof window !== 'undefined') {
       const REGISTERED_USERS_KEY = 'whatsapp_enterprise_users';
       try {
@@ -135,6 +142,69 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
         }
       } catch {
         // Ignore errors
+      }
+    }
+    
+    // Also update in Supabase if configured
+    if (isSupabaseConfigured()) {
+      const supabaseUpdates: Parameters<typeof supabaseUsers.updateUserProfile>[1] = {};
+      if (updates.name) supabaseUpdates.displayName = updates.name;
+      if (updates.avatar !== undefined) supabaseUpdates.avatar = updates.avatar;
+      if (updates.about !== undefined) supabaseUpdates.bio = updates.about;
+      if (updates.phone !== undefined) supabaseUpdates.phone = updates.phone;
+      
+      supabaseUsers.updateUserProfile(user.id, supabaseUpdates).catch(err => {
+        console.error('Failed to update profile in Supabase:', err);
+      });
+    }
+  };
+
+  // Handle file selection for avatar upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    
+    setUploadError(null);
+    setIsUploadingAvatar(true);
+    
+    try {
+      if (isSupabaseConfigured()) {
+        // Upload to Supabase Storage
+        const result = await supabaseUsers.uploadAvatar(user.id, file);
+        
+        if (result.error) {
+          setUploadError(result.error);
+          setIsUploadingAvatar(false);
+          return;
+        }
+        
+        if (result.url) {
+          updateUserProfile({ avatar: result.url });
+          setShowAvatarPicker(false);
+        }
+      } else {
+        // Fallback: Convert to base64 for localStorage-only mode
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          if (base64) {
+            updateUserProfile({ avatar: base64 });
+            setShowAvatarPicker(false);
+          }
+        };
+        reader.onerror = () => {
+          setUploadError('Failed to read file');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setUploadError('Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
     }
   };
@@ -396,7 +466,10 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
               <h3 className="text-lg font-semibold text-foreground">Choose Photo</h3>
               <button
                 type="button"
-                onClick={() => setShowAvatarPicker(false)}
+                onClick={() => {
+                  setShowAvatarPicker(false);
+                  setUploadError(null);
+                }}
                 className="p-2 -mr-2 rounded-full hover:bg-muted/50 transition-colors"
                 aria-label="Close photo picker"
               >
@@ -418,8 +491,51 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                 </div>
               </div>
 
+              {/* Upload from device */}
+              <div className="mb-6">
+                <p className="text-sm text-muted-foreground mb-3">Upload from device</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <label
+                  htmlFor="avatar-upload"
+                  className={cn(
+                    'flex items-center justify-center gap-3 p-4 rounded-xl',
+                    'border-2 border-dashed border-primary/40',
+                    'bg-primary/5 hover:bg-primary/10',
+                    'cursor-pointer transition-colors',
+                    isUploadingAvatar && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                      <span className="text-primary font-medium">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6 text-primary" />
+                      <span className="text-primary font-medium">Upload Photo</span>
+                    </>
+                  )}
+                </label>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  JPEG, PNG, GIF, or WebP • Max 5MB
+                </p>
+                {uploadError && (
+                  <p className="text-xs text-destructive mt-2 text-center">
+                    {uploadError}
+                  </p>
+                )}
+              </div>
+
               {/* Avatar options */}
-              <p className="text-sm text-muted-foreground mb-3">Choose an avatar</p>
+              <p className="text-sm text-muted-foreground mb-3">Or choose an avatar</p>
               <div className="grid grid-cols-4 gap-3">
                 {AVATAR_OPTIONS.map((avatar, index) => (
                   <button
