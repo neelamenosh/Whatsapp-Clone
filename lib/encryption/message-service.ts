@@ -41,48 +41,52 @@ export async function encryptMessageForSending(
   recipientId: string,
   messageType: 'text' | 'image' | 'video' | 'audio' | 'document' = 'text'
 ): Promise<E2EEMessagePayload> {
-  // Check if E2EE is enabled
-  if (!isE2EEEnabled()) {
-    console.warn('E2EE not enabled, sending plaintext');
-    return {
-      content: plaintext,
-      type: messageType,
-      encrypted: false,
-    };
-  }
-  
-  // Get my keys
-  const myPublicKey = getMyPublicKey();
-  const myPrivateKey = getMyPrivateKey();
-  
-  if (!myPublicKey || !myPrivateKey) {
-    console.warn('E2EE keys not found, sending plaintext');
-    return {
-      content: plaintext,
-      type: messageType,
-      encrypted: false,
-    };
-  }
-  
-  // Get recipient's public key
-  const recipientPublicKey = await fetchPublicKey(recipientId);
-  
-  if (!recipientPublicKey) {
-    console.warn(`No public key found for recipient ${recipientId}, sending plaintext`);
-    return {
-      content: plaintext,
-      type: messageType,
-      encrypted: false,
-    };
-  }
-  
   try {
+    // Check if E2EE is enabled
+    if (!isE2EEEnabled()) {
+      console.log('E2EE not enabled, sending plaintext');
+      return {
+        content: plaintext,
+        type: messageType,
+        encrypted: false,
+      };
+    }
+    
+    // Get my keys
+    const myPublicKey = getMyPublicKey();
+    const myPrivateKey = getMyPrivateKey();
+    
+    if (!myPublicKey || !myPrivateKey) {
+      console.log('E2EE keys not found, sending plaintext');
+      return {
+        content: plaintext,
+        type: messageType,
+        encrypted: false,
+      };
+    }
+    
+    // Get recipient's public key
+    let recipientPublicKey: string | null = null;
+    try {
+      recipientPublicKey = await fetchPublicKey(recipientId);
+    } catch (fetchErr) {
+      console.warn('Failed to fetch recipient public key:', fetchErr);
+    }
+    
+    if (!recipientPublicKey) {
+      console.log(`No public key found for recipient ${recipientId}, sending plaintext`);
+      return {
+        content: plaintext,
+        type: messageType,
+        encrypted: false,
+      };
+    }
+    
     // Use shared key for better performance
     const sharedKey = getSharedKey(recipientPublicKey, myPrivateKey);
     const encrypted = encryptWithSharedKey(plaintext, sharedKey, myPublicKey);
     
     // Return encrypted payload
-    // Store a placeholder in content for UI display while encrypted data is separate
     return {
       content: '🔒 Encrypted message',
       type: messageType,

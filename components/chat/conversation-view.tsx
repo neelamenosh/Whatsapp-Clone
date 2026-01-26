@@ -444,24 +444,31 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     if (isSupabaseConfigured()) {
       // Encrypt the message for the recipient
       const encryptAndSend = async () => {
+        let encryptedPayload: any = { encrypted: false };
+        
         try {
-          // Encrypt message using E2EE
-          const encryptedPayload = await encryptMessageForSending(
+          // Try to encrypt message using E2EE
+          encryptedPayload = await encryptMessageForSending(
             messageContent,
             participant.id,
             'text'
           );
           
-          console.log('🔐 Sending encrypted message to Supabase:', {
+          console.log('🔐 Message encryption status:', {
             senderId: loggedInUser.id,
             recipientId: participant.id,
             encrypted: encryptedPayload.encrypted,
           });
-          
+        } catch (encryptErr) {
+          console.warn('Encryption failed, sending unencrypted:', encryptErr);
+          encryptedPayload = { encrypted: false };
+        }
+        
+        try {
           const result = await supabaseMessages.sendMessage(
             loggedInUser.id,
             participant.id,
-            messageContent, // Store plaintext locally for sender's view
+            messageContent,
             'text',
             encryptedPayload.encrypted ? {
               encrypted: true,
@@ -474,7 +481,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           if (result.error) {
             console.error('Failed to send message to Supabase:', result.error);
           } else if (result.message) {
-            console.log('🔐 Encrypted message sent successfully:', result.message.id);
+            console.log('✅ Message sent successfully:', result.message.id);
             // Update message ID to match Supabase
             setMessages((prev) =>
               prev.map((m) =>
@@ -483,7 +490,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             );
           }
         } catch (err) {
-          console.error('Encryption/send error:', err);
+          console.error('Send message error:', err);
         }
       };
       
