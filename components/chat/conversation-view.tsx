@@ -54,6 +54,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const isOnlineRef = useRef(false); // Ref to track online status without stale closure
   const [showMenu, setShowMenu] = useState(false);
   const [showContactProfile, setShowContactProfile] = useState(false);
   const [isE2EE, setIsE2EE] = useState(false);
@@ -213,12 +214,16 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         const statusData = await supabaseUsers.getUserStatus(participantId);
         if (!isMounted) return;
         if (statusData) {
-          setIsOnline(statusData.status === 'online');
+          const online = statusData.status === 'online';
+          setIsOnline(online);
+          isOnlineRef.current = online;
         }
       } else {
         const liveChatService = getLiveChatService();
         if (!isMounted) return;
-        setIsOnline(liveChatService.isUserOnline(participantId));
+        const online = liveChatService.isUserOnline(participantId);
+        setIsOnline(online);
+        isOnlineRef.current = online;
       }
     };
     checkOnlineStatus();
@@ -233,12 +238,14 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     if (!isSupabaseConfigured()) return;
 
     const unsubscribe = supabaseUsers.subscribeToUserStatus(participantId, (status, lastSeen) => {
-      const wasOnline = isOnline;
+      const wasOnline = isOnlineRef.current; // Use ref to avoid stale closure
       const nowOnline = status === 'online';
       setIsOnline(nowOnline);
+      isOnlineRef.current = nowOnline; // Keep ref in sync
 
       // If recipient just came online, update pending messages to 'delivered'
       if (!wasOnline && nowOnline && loggedInUserId) {
+        // Update local state
         setMessages((prev) =>
           prev.map((m) =>
             m.senderId === loggedInUserId && m.status === 'sent'
@@ -246,13 +253,16 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               : m
           )
         );
+
+        // Also update in database
+        supabaseMessages.markMessagesAsDelivered(participantId).catch(console.error);
       }
     });
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [participantId, isOnline, loggedInUserId]);
+  }, [participantId, loggedInUserId]); // Removed isOnline from deps to prevent stale closure
 
   // Subscribe to message status changes (for read receipts from recipient)
   useEffect(() => {
@@ -525,7 +535,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       );
 
       // If recipient is online, mark as delivered after another short delay
-      if (isOnline) {
+      if (isOnlineRef.current) {
         setTimeout(() => {
           setMessages((prev) =>
             prev.map((m) =>

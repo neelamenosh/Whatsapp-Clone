@@ -205,14 +205,14 @@ export function setCurrentUser(user: User): void {
   localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
 }
 
-// Clear current user (logout)
-export function clearCurrentUser(): void {
+// Clear current user (logout) - async to ensure status update completes
+export async function clearCurrentUser(): Promise<void> {
   if (typeof window === 'undefined') return;
 
   const user = getCurrentUser();
   if (user && isSupabaseConfigured()) {
-    // Update online status in Supabase
-    supabaseUsers.updateUserStatus(user.id, 'offline');
+    // Update online status in Supabase and wait for it to complete
+    await supabaseUsers.updateUserStatus(user.id, 'offline');
   }
 
   localStorage.removeItem(SESSION_USER_KEY);
