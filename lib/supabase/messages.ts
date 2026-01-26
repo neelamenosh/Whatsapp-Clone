@@ -233,3 +233,58 @@ export function unsubscribe(channel: RealtimeChannel | null): void {
   if (!channel || !supabase) return;
   supabase.removeChannel(channel);
 }
+
+// Clear all messages in a chat (for both users)
+export async function clearChat(
+  userId1: string,
+  userId2: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, error: 'Database not configured' };
+  }
+
+  try {
+    const chatId = getChatId(userId1, userId2);
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('chat_id', chatId);
+
+    if (error) {
+      console.error('Clear chat error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Clear chat error:', err);
+    return { success: false, error: 'Failed to clear chat' };
+  }
+}
+
+// Delete all messages for a user (when deleting account)
+export async function deleteUserMessages(
+  userId: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, error: 'Database not configured' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`);
+
+    if (error) {
+      console.error('Delete user messages error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Delete user messages error:', err);
+    return { success: false, error: 'Failed to delete messages' };
+  }
+}

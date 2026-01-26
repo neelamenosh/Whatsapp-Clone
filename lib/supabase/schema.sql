@@ -87,3 +87,32 @@ CREATE TRIGGER update_messages_updated_at
   BEFORE UPDATE ON messages
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Blocked users table
+CREATE TABLE IF NOT EXISTS blocked_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  blocker_id TEXT NOT NULL,
+  blocked_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(blocker_id, blocked_id)
+);
+
+-- Create indexes for blocked_users
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker_id ON blocked_users(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked_id ON blocked_users(blocked_id);
+
+-- Enable Row Level Security for blocked_users
+ALTER TABLE blocked_users ENABLE ROW LEVEL SECURITY;
+
+-- Policies for blocked_users table
+CREATE POLICY "Users can view their blocked list" ON blocked_users
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert blocked users" ON blocked_users
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can delete from blocked list" ON blocked_users
+  FOR DELETE USING (true);
+
+-- Enable Realtime for blocked_users table
+ALTER PUBLICATION supabase_realtime ADD TABLE blocked_users;

@@ -2,11 +2,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { X, LogOut, User as UserIcon, ChevronRight } from 'lucide-react';
+import { X, LogOut, User as UserIcon, ChevronRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { users, currentUser } from '@/lib/mock-data';
 import { useSettings } from '@/components/settings-provider';
-import { clearCurrentUser, getCurrentUser } from '@/lib/auth-store';
+import { clearCurrentUser, getCurrentUser, deleteUserAccount } from '@/lib/auth-store';
 import { ProfileModal } from '@/components/profile/profile-modal';
 import type { Visibility } from '@/lib/settings';
 import type { User } from '@/lib/types';
@@ -131,6 +131,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { settings, updateSettings, resetSettings } = useSettings();
   const router = useRouter();
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const [loggedInUser, setLoggedInUser] = React.useState<User | null>(null);
 
@@ -144,6 +146,21 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const handleLogout = () => {
     // Clear current user session
     clearCurrentUser();
+    
+    onOpenChange(false);
+    router.push('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    
+    const result = await deleteUserAccount();
+    
+    if (result.error) {
+      alert(`Failed to delete account: ${result.error}`);
+      setIsDeleting(false);
+      return;
+    }
     
     onOpenChange(false);
     router.push('/login');
@@ -567,13 +584,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <button
                     type="button"
                     onClick={() => setShowLogoutConfirm(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium rounded-xl transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-muted/50 hover:bg-muted text-foreground font-medium rounded-xl transition-colors"
                   >
                     <LogOut className="w-5 h-5" />
                     Log out
                   </button>
                 ) : (
-                  <div className="p-4 bg-destructive/10 rounded-xl space-y-3">
+                  <div className="p-4 bg-muted/30 rounded-xl space-y-3">
                     <p className="text-sm text-foreground text-center">
                       Are you sure you want to log out?
                     </p>
@@ -588,9 +605,49 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex-1 px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium rounded-lg transition-colors"
+                        className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg transition-colors"
                       >
                         Log out
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="h-px bg-border/50 my-2" />
+
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Delete Account
+                  </button>
+                ) : (
+                  <div className="p-4 bg-destructive/10 rounded-xl space-y-3">
+                    <p className="text-sm text-foreground text-center font-medium">
+                      ⚠️ Delete your account?
+                    </p>
+                    <p className="text-xs text-muted-foreground text-center">
+                      This will permanently delete your account and all your messages. This action cannot be undone.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="flex-1 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeleting}
+                        className="flex-1 px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </div>

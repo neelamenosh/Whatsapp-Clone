@@ -307,3 +307,156 @@ export async function getUserStatus(userId: string): Promise<{ status: 'online' 
     return null;
   }
 }
+
+// Delete user account
+export async function deleteUser(userId: string): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, error: 'Database not configured' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Delete user error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Delete user error:', err);
+    return { success: false, error: 'Failed to delete account' };
+  }
+}
+
+// Block a user
+export async function blockUser(
+  blockerId: string,
+  blockedId: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, error: 'Database not configured' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('blocked_users')
+      .insert({
+        blocker_id: blockerId,
+        blocked_id: blockedId,
+      });
+
+    if (error) {
+      // Check if already blocked (unique constraint)
+      if (error.code === '23505') {
+        return { success: true, error: null }; // Already blocked
+      }
+      console.error('Block user error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Block user error:', err);
+    return { success: false, error: 'Failed to block user' };
+  }
+}
+
+// Unblock a user
+export async function unblockUser(
+  blockerId: string,
+  blockedId: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, error: 'Database not configured' };
+  }
+
+  try {
+    const { error } = await supabase
+      .from('blocked_users')
+      .delete()
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId);
+
+    if (error) {
+      console.error('Unblock user error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Unblock user error:', err);
+    return { success: false, error: 'Failed to unblock user' };
+  }
+}
+
+// Check if a user is blocked
+export async function isUserBlocked(
+  blockerId: string,
+  blockedId: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from('blocked_users')
+      .select('id')
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId)
+      .single();
+
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+
+// Get all blocked user IDs for a user
+export async function getBlockedUserIds(userId: string): Promise<string[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('blocked_users')
+      .select('blocked_id')
+      .eq('blocker_id', userId);
+
+    if (error || !data) return [];
+    return data.map(row => row.blocked_id);
+  } catch {
+    return [];
+  }
+}
+
+// Subscribe to blocked users changes (real-time)
+export function subscribeToBlockedUsers(
+  userId: string,
+  onChange: (blockedIds: string[]) => void
+): (() => void) | null {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  const channel = supabase
+    .channel(`blocked-users:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'blocked_users',
+        filter: `blocker_id=eq.${userId}`,
+      },
+      async () => {
+        // Refetch blocked users on any change
+        const blockedIds = await getBlockedUserIds(userId);
+        onChange(blockedIds);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (supabase) supabase.removeChannel(channel);
+  };
+}

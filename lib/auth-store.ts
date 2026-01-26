@@ -374,3 +374,56 @@ export function initPresenceTracking(): () => void {
     clearInterval(heartbeatInterval);
   };
 }
+
+// Delete user account
+export async function deleteUserAccount(): Promise<{ success: boolean; error: string | null }> {
+  const user = getCurrentUser();
+  if (!user) {
+    return { success: false, error: 'No user logged in' };
+  }
+
+  try {
+    if (isSupabaseConfigured()) {
+      // Import dynamically to avoid circular dependency
+      const { deleteUserMessages } = await import('./supabase/messages');
+      
+      // First delete all user's messages
+      const messagesResult = await deleteUserMessages(user.id);
+      if (messagesResult.error) {
+        console.error('Failed to delete user messages:', messagesResult.error);
+      }
+
+      // Then delete the user
+      const userResult = await supabaseUsers.deleteUser(user.id);
+      if (userResult.error) {
+        return { success: false, error: userResult.error };
+      }
+    } else {
+      // Local deletion
+      const users = getLocalUsers();
+      const filteredUsers = users.filter(u => u.id !== user.id);
+      saveLocalUsers(filteredUsers);
+    }
+
+    // Clear session
+    clearCurrentUser();
+    
+    // Clear local storage related to this user
+    if (typeof window !== 'undefined') {
+      // Clear any user-specific data
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes(user.id) || key.includes('whatsapp_messages_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('Delete account error:', err);
+    return { success: false, error: 'Failed to delete account' };
+  }
+}

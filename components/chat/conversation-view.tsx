@@ -14,6 +14,7 @@ import * as supabaseMessages from '@/lib/supabase/messages';
 import * as supabaseUsers from '@/lib/supabase/users';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
+import { ContactProfileModal } from './contact-profile-modal';
 import { 
   ArrowLeft, 
   Phone, 
@@ -23,7 +24,15 @@ import {
   Paperclip, 
   Mic, 
   Send,
-  Camera
+  Camera,
+  Search,
+  X,
+  User as UserIcon,
+  Trash2,
+  Ban,
+  Unlock,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 interface ConversationViewProps {
@@ -36,20 +45,83 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showContactProfile, setShowContactProfile] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<number[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [isBlockedBySupabase, setIsBlockedBySupabase] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { settings } = useSettings();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { settings, updateSettings } = useSettings();
   
   const loggedInUser = getCurrentUser();
   const participant = chat.participants[0];
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
-  const isBlocked = !isGroup && settings.privacy.blockedUserIds.includes(participant.id);
+  
+  // Check blocked status from both local settings and Supabase
+  const isBlocked = !isGroup && (settings.privacy.blockedUserIds.includes(participant.id) || isBlockedBySupabase);
   
   // Get consistent chat ID for message storage
   const consistentChatId = !isGroup && loggedInUser 
     ? getConsistentChatId(loggedInUser.id, participant.id) 
     : chat.id;
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
+
+  // Focus search input when search opens
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
+
+  // Search functionality
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const results = messages
+      .map((msg, index) => ({ index, matches: msg.content.toLowerCase().includes(query) }))
+      .filter(item => item.matches)
+      .map(item => item.index);
+    
+    setSearchResults(results);
+    setCurrentSearchIndex(results.length > 0 ? 0 : -1);
+  }, [searchQuery, messages]);
+
+  // Check blocked status from Supabase on mount
+  useEffect(() => {
+    if (isSupabaseConfigured() && loggedInUser && !isGroup) {
+      supabaseUsers.isUserBlocked(loggedInUser.id, participant.id).then(blocked => {
+        setIsBlockedBySupabase(blocked);
+      });
+    }
+  }, [loggedInUser, participant.id, isGroup]);
 
   // Load messages from Supabase or localStorage on mount
   useEffect(() => {
@@ -318,6 +390,106 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     }, 1500);
   };
 
+  // Handle clear chat
+  const handleClearChat = async () => {
+    if (!loggedInUser) return;
+    
+    const confirmed = window.confirm('Are you sure you want to clear all messages? This action cannot be undone.');
+    if (!confirmed) return;
+    
+    setIsClearing(true);
+    setShowMenu(false);
+    
+    try {
+      // Clear from Supabase if configured
+      if (isSupabaseConfigured()) {
+        const result = await supabaseMessages.clearChat(loggedInUser.id, participant.id);
+        if (result.error) {
+          console.error('Failed to clear chat from Supabase:', result.error);
+          alert('Failed to clear chat. Please try again.');
+          return;
+        }
+      }
+      
+      // Clear local messages
+      setMessages([]);
+      
+      // Clear from localStorage
+      const liveChatService = getLiveChatService();
+      localStorage.removeItem(`whatsapp_messages_${consistentChatId}`);
+      
+    } catch (err) {
+      console.error('Error clearing chat:', err);
+      alert('Failed to clear chat. Please try again.');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  // Handle block user
+  const handleBlockUser = async () => {
+    if (!loggedInUser || isGroup) return;
+    
+    setShowMenu(false);
+    
+    // Update local settings
+    updateSettings((prev) => ({
+      ...prev,
+      privacy: {
+        ...prev.privacy,
+        blockedUserIds: [...prev.privacy.blockedUserIds, participant.id],
+      },
+    }));
+    
+    // Update in Supabase
+    if (isSupabaseConfigured()) {
+      const result = await supabaseUsers.blockUser(loggedInUser.id, participant.id);
+      if (result.error) {
+        console.error('Failed to block user in Supabase:', result.error);
+      } else {
+        setIsBlockedBySupabase(true);
+      }
+    }
+  };
+
+  // Handle unblock user
+  const handleUnblockUser = async () => {
+    if (!loggedInUser || isGroup) return;
+    
+    // Update local settings
+    updateSettings((prev) => ({
+      ...prev,
+      privacy: {
+        ...prev.privacy,
+        blockedUserIds: prev.privacy.blockedUserIds.filter(id => id !== participant.id),
+      },
+    }));
+    
+    // Update in Supabase
+    if (isSupabaseConfigured()) {
+      const result = await supabaseUsers.unblockUser(loggedInUser.id, participant.id);
+      if (result.error) {
+        console.error('Failed to unblock user in Supabase:', result.error);
+      } else {
+        setIsBlockedBySupabase(false);
+      }
+    }
+  };
+
+  // Navigate search results
+  const goToNextResult = () => {
+    if (searchResults.length === 0) return;
+    setCurrentSearchIndex((prev) => (prev + 1) % searchResults.length);
+  };
+
+  const goToPrevResult = () => {
+    if (searchResults.length === 0) return;
+    setCurrentSearchIndex((prev) => (prev - 1 + searchResults.length) % searchResults.length);
+  };
+
+  // Get filtered messages for display
+  const displayMessages = messages;
+
   const getStatusText = () => {
     if (isGroup) {
       return `${chat.participants.length} members`;
@@ -336,8 +508,19 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
 
   return (
     <div className="flex flex-col h-full page-transition">
+      {/* Contact Profile Modal */}
+      <ContactProfileModal
+        open={showContactProfile}
+        onOpenChange={setShowContactProfile}
+        contact={participant}
+        isOnline={isOnline}
+        isBlocked={isBlocked}
+        onBlock={handleBlockUser}
+        onUnblock={handleUnblockUser}
+      />
+
       {/* Header */}
-      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-10">
+      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20">
         <button
           type="button"
           onClick={onBack}
@@ -347,7 +530,10 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
 
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div 
+          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => !isGroup && setShowContactProfile(true)}
+        >
           <div className="relative shrink-0">
             <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-glass-border/30">
               <img
@@ -388,29 +574,168 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
           >
             <Phone className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
-            aria-label="More options"
-          >
-            <MoreVertical className="h-5 w-5" />
-          </button>
+          
+          {/* More options dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setShowMenu(!showMenu)}
+              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label="More options"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 top-12 w-56 glass-panel rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* View Contact */}
+                {!isGroup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowContactProfile(true);
+                    }}
+                    className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <UserIcon className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm text-foreground">View Contact</span>
+                  </button>
+                )}
+                
+                {/* Search */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowSearch(true);
+                  }}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <Search className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Search</span>
+                </button>
+                
+                {/* Clear Chat */}
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  disabled={isClearing}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+                >
+                  <Trash2 className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-foreground">
+                    {isClearing ? 'Clearing...' : 'Clear Chat'}
+                  </span>
+                </button>
+                
+                <div className="h-px bg-border my-2" />
+                
+                {/* Block/Unblock */}
+                {!isGroup && (
+                  <button
+                    type="button"
+                    onClick={isBlocked ? handleUnblockUser : handleBlockUser}
+                    className={cn(
+                      'w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left',
+                      isBlocked ? 'text-primary' : 'text-destructive'
+                    )}
+                  >
+                    {isBlocked ? (
+                      <>
+                        <Unlock className="h-5 w-5" />
+                        <span className="text-sm">Unblock Contact</span>
+                      </>
+                    ) : (
+                      <>
+                        <Ban className="h-5 w-5" />
+                        <span className="text-sm">Block Contact</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Search Bar */}
+      {showSearch && (
+        <div className="glass-panel px-4 py-2 flex items-center gap-3 z-10 border-b border-border">
+          <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search in conversation..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+          {searchResults.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {currentSearchIndex + 1} of {searchResults.length}
+              </span>
+              <button
+                type="button"
+                onClick={goToPrevResult}
+                className="p-1 hover:bg-muted/50 rounded transition-colors"
+                aria-label="Previous result"
+              >
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <button
+                type="button"
+                onClick={goToNextResult}
+                className="p-1 hover:bg-muted/50 rounded transition-colors"
+                aria-label="Next result"
+              >
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setShowSearch(false);
+              setSearchQuery('');
+            }}
+            className="p-1 hover:bg-muted/50 rounded transition-colors"
+            aria-label="Close search"
+          >
+            <X className="h-5 w-5 text-muted-foreground" />
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden">
         <Virtuoso
           className="h-full px-4 py-4 scrollbar-hide"
-          data={listData}
+          data={displayMessages}
           followOutput="smooth"
-          itemContent={(_, message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isOwn={message.senderId === loggedInUser?.id}
-            />
-          )}
+          itemContent={(index, message) => {
+            const isSearchMatch = searchResults.includes(index);
+            const isCurrentSearchMatch = searchResults[currentSearchIndex] === index;
+            
+            return (
+              <div
+                className={cn(
+                  'transition-all duration-200',
+                  isSearchMatch && 'bg-primary/10 -mx-2 px-2 rounded-lg',
+                  isCurrentSearchMatch && 'bg-primary/20 ring-2 ring-primary/50'
+                )}
+              >
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isOwn={message.senderId === loggedInUser?.id}
+                  searchQuery={searchQuery}
+                />
+              </div>
+            );
+          }}
           components={{
             Header: () => (
               <div className="space-y-4">
@@ -437,76 +762,95 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
         />
       </div>
 
-      {/* Input */}
-      <div className="glass-panel px-4 py-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-            aria-label="Add emoji"
-          >
-            <Smile className="h-6 w-6" />
-          </button>
-
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Message..."
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              disabled={isBlocked}
-              className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="Attach file"
-              >
-                <Paperclip className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="Camera"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Block/Unblock Bar - shown when user is blocked */}
+      {isBlocked && !isGroup && (
+        <div className="glass-panel px-4 py-3 border-t border-border">
+          <div className="flex items-center justify-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              You have blocked this contact
+            </p>
+            <button
+              type="button"
+              onClick={handleUnblockUser}
+              className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-lg transition-colors"
+            >
+              Unblock
+            </button>
           </div>
-
-          {inputValue.trim() ? (
-            <button
-              type="button"
-              onClick={handleSend}
-              className={cn(
-                'w-12 h-12 rounded-full bg-primary text-primary-foreground',
-                'flex items-center justify-center',
-                'shadow-lg shadow-primary/30',
-                'transition-all duration-200 hover:scale-105 active:scale-95'
-              )}
-              aria-label="Send message"
-            >
-              <Send className="h-5 w-5" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={cn(
-                'w-12 h-12 rounded-full bg-primary text-primary-foreground',
-                'flex items-center justify-center',
-                'shadow-lg shadow-primary/30',
-                'transition-all duration-200 hover:scale-105 active:scale-95'
-              )}
-              aria-label="Voice message"
-            >
-              <Mic className="h-5 w-5" />
-            </button>
-          )}
         </div>
-      </div>
+      )}
+
+      {/* Input - hide when blocked */}
+      {!isBlocked && (
+        <div className="glass-panel px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Add emoji"
+            >
+              <Smile className="h-6 w-6" />
+            </button>
+
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Message..."
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Attach file"
+                >
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Camera"
+                >
+                  <Camera className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {inputValue.trim() ? (
+              <button
+                type="button"
+                onClick={handleSend}
+                className={cn(
+                  'w-12 h-12 rounded-full bg-primary text-primary-foreground',
+                  'flex items-center justify-center',
+                  'shadow-lg shadow-primary/30',
+                  'transition-all duration-200 hover:scale-105 active:scale-95'
+                )}
+                aria-label="Send message"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={cn(
+                  'w-12 h-12 rounded-full bg-primary text-primary-foreground',
+                  'flex items-center justify-center',
+                  'shadow-lg shadow-primary/30',
+                  'transition-all duration-200 hover:scale-105 active:scale-95'
+                )}
+                aria-label="Voice message"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

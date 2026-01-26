@@ -9,9 +9,36 @@ interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   showTimestamp?: boolean;
+  searchQuery?: string;
 }
 
-export function MessageBubble({ message, isOwn, showTimestamp = true }: MessageBubbleProps) {
+// Helper function to highlight search matches
+function highlightText(text: string, query: string, isOwn: boolean) {
+  if (!query || query.trim() === '') {
+    return text;
+  }
+
+  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  
+  return parts.map((part, index) => {
+    if (part.toLowerCase() === query.toLowerCase()) {
+      return (
+        <mark
+          key={index}
+          className={cn(
+            'bg-yellow-400/80 text-black rounded px-0.5',
+            isOwn ? 'bg-yellow-300' : 'bg-yellow-400'
+          )}
+        >
+          {part}
+        </mark>
+      );
+    }
+    return part;
+  });
+}
+
+export function MessageBubble({ message, isOwn, showTimestamp = true, searchQuery }: MessageBubbleProps) {
   const getStatusIcon = () => {
     if (!isOwn) return null;
     
@@ -49,7 +76,7 @@ export function MessageBubble({ message, isOwn, showTimestamp = true }: MessageB
           'text-[15px] leading-relaxed',
           isOwn ? 'text-primary-foreground' : 'text-foreground'
         )}>
-          {message.content}
+          {highlightText(message.content, searchQuery || '', isOwn)}
         </p>
         
         {showTimestamp && (
