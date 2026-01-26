@@ -5,119 +5,119 @@
 
 :root {
   /* Elegant White, Green & Black - Light Mode */
-  --background: oklch(0.98 0.005 145);
-  --foreground: oklch(0.15 0.02 145);
-  --card: oklch(1 0 0 / 0.75);
-  --card-foreground: oklch(0.15 0.02 145);
-  --popover: oklch(1 0 0 / 0.9);
-  --popover-foreground: oklch(0.15 0.02 145);
-  --primary: oklch(0.55 0.16 145);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.96 0.015 145);
-  --secondary-foreground: oklch(0.25 0.02 145);
-  --muted: oklch(0.95 0.008 145);
-  --muted-foreground: oklch(0.45 0.02 145);
-  --accent: oklch(0.65 0.12 145);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.88 0.015 145 / 0.4);
-  --input: oklch(0.97 0.008 145);
-  --ring: oklch(0.55 0.16 145 / 0.4);
+  --background: hsl(145 30% 98%);
+  --foreground: hsl(145 15% 10%);
+  --card: hsla(0 0% 100% / 0.8);
+  --card-foreground: hsl(145 15% 10%);
+  --popover: hsla(0 0% 100% / 0.95);
+  --popover-foreground: hsl(145 15% 10%);
+  --primary: hsl(145 60% 45%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(145 20% 95%);
+  --secondary-foreground: hsl(145 15% 20%);
+  --muted: hsl(145 15% 94%);
+  --muted-foreground: hsl(145 10% 35%);
+  --accent: hsl(145 50% 55%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsla(145 15% 20% / 0.15);
+  --input: hsl(145 15% 96%);
+  --ring: hsla(145 60% 45% / 0.4);
   --radius: 1.25rem;
   
   /* Glass-specific tokens - Green tinted */
-  --glass-bg: oklch(1 0 0 / 0.7);
-  --glass-border: oklch(0.92 0.02 145 / 0.6);
-  --glass-shadow: oklch(0.3 0.05 145 / 0.08);
-  --glass-blur: 20px;
-  --message-sent: oklch(0.55 0.14 145 / 0.95);
-  --message-received: oklch(1 0 0 / 0.8);
-  --online-indicator: oklch(0.6 0.18 145);
-  --typing-indicator: oklch(0.5 0.12 145);
+  --glass-bg: hsla(0 0% 100% / 0.75);
+  --glass-border: hsla(145 30% 20% / 0.1);
+  --glass-shadow: hsla(145 20% 10% / 0.08);
+  --glass-blur: 24px;
+  --message-sent: hsla(145 55% 45% / 0.95);
+  --message-received: hsla(0 0% 100% / 0.85);
+  --online-indicator: hsl(145 65% 50%);
+  --typing-indicator: hsl(145 45% 45%);
   
   /* Message tick colors - WhatsApp style */
-  --tick-sent: oklch(1 0 0 / 0.85);           /* White tick for sent */
-  --tick-delivered: oklch(1 0 0 / 0.85);       /* White ticks for delivered */
-  --tick-read: oklch(0.75 0.18 180);           /* Bright cyan/teal for read - distinct from message bg */
+  --tick-sent: hsla(0 0% 100% / 0.9);
+  --tick-delivered: hsla(0 0% 100% / 0.9);
+  --tick-read: hsl(185 85% 65%);
   
   /* Gradient backgrounds - Subtle green-white */
-  --gradient-start: oklch(0.98 0.012 145);
-  --gradient-mid: oklch(0.99 0.005 145);
-  --gradient-end: oklch(0.96 0.015 145);
+  --gradient-start: hsl(145 30% 98%);
+  --gradient-mid: hsl(145 20% 99%);
+  --gradient-end: hsl(145 25% 96%);
   
-  --sidebar: oklch(1 0 0 / 0.6);
-  --sidebar-foreground: oklch(0.15 0.02 145);
-  --sidebar-primary: oklch(0.55 0.16 145);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.94 0.02 145);
-  --sidebar-accent-foreground: oklch(0.2 0.02 145);
-  --sidebar-border: oklch(0.9 0.015 145 / 0.3);
-  --sidebar-ring: oklch(0.55 0.16 145);
+  --sidebar: hsla(0 0% 100% / 0.65);
+  --sidebar-foreground: hsl(145 15% 10%);
+  --sidebar-primary: hsl(145 60% 45%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(145 20% 94%);
+  --sidebar-accent-foreground: hsl(145 15% 15%);
+  --sidebar-border: hsla(145 15% 10% / 0.1);
+  --sidebar-ring: hsl(145 60% 45%);
   
-  --chart-1: oklch(0.55 0.16 145);
-  --chart-2: oklch(0.45 0.14 145);
-  --chart-3: oklch(0.65 0.12 145);
-  --chart-4: oklch(0.35 0.1 145);
-  --chart-5: oklch(0.75 0.08 145);
+  --chart-1: hsl(145 60% 45%);
+  --chart-2: hsl(145 50% 40%);
+  --chart-3: hsl(145 55% 55%);
+  --chart-4: hsl(145 40% 30%);
+  --chart-5: hsl(145 45% 65%);
 }
 
 .dark {
   /* Elegant White, Green & Black - Dark Mode */
-  --background: oklch(0.12 0.015 145);
-  --foreground: oklch(0.95 0.008 145);
-  --card: oklch(0.16 0.015 145 / 0.7);
-  --card-foreground: oklch(0.95 0.008 145);
-  --popover: oklch(0.14 0.015 145 / 0.95);
-  --popover-foreground: oklch(0.95 0.008 145);
-  --primary: oklch(0.6 0.14 145);
-  --primary-foreground: oklch(0.1 0.02 145);
-  --secondary: oklch(0.2 0.015 145);
-  --secondary-foreground: oklch(0.9 0.008 145);
-  --muted: oklch(0.22 0.015 145);
-  --muted-foreground: oklch(0.6 0.015 145);
-  --accent: oklch(0.5 0.1 145);
-  --accent-foreground: oklch(0.98 0.005 145);
-  --destructive: oklch(0.5 0.2 25);
-  --destructive-foreground: oklch(0.95 0.01 25);
-  --border: oklch(0.3 0.015 145 / 0.35);
-  --input: oklch(0.18 0.015 145);
-  --ring: oklch(0.6 0.14 145 / 0.4);
+  --background: hsl(145 25% 8%);
+  --foreground: hsl(145 15% 95%);
+  --card: hsla(145 25% 12% / 0.75);
+  --card-foreground: hsl(145 15% 95%);
+  --popover: hsla(145 25% 10% / 0.95);
+  --popover-foreground: hsl(145 15% 95%);
+  --primary: hsl(145 55% 50%);
+  --primary-foreground: hsl(145 25% 5%);
+  --secondary: hsl(145 20% 15%);
+  --secondary-foreground: hsl(145 10% 90%);
+  --muted: hsl(145 20% 14%);
+  --muted-foreground: hsl(145 10% 65%);
+  --accent: hsl(145 40% 45%);
+  --accent-foreground: hsl(145 20% 98%);
+  --destructive: hsl(0 62% 30%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsla(145 15% 95% / 0.15);
+  --input: hsl(145 20% 12%);
+  --ring: hsla(145 55% 50% / 0.4);
   
   /* Glass-specific tokens - dark mode with green tint */
-  --glass-bg: oklch(0.16 0.015 145 / 0.6);
-  --glass-border: oklch(0.35 0.02 145 / 0.35);
-  --glass-shadow: oklch(0 0 0 / 0.35);
+  --glass-bg: hsla(145 25% 12% / 0.65);
+  --glass-border: hsla(145 20% 95% / 0.1);
+  --glass-shadow: hsla(0 0% 0% / 0.4);
   --glass-blur: 24px;
-  --message-sent: oklch(0.45 0.12 145 / 0.9);
-  --message-received: oklch(0.2 0.015 145 / 0.75);
-  --online-indicator: oklch(0.55 0.16 145);
-  --typing-indicator: oklch(0.5 0.1 145);
+  --message-sent: hsla(145 50% 40% / 0.9);
+  --message-received: hsla(145 20% 15% / 0.8);
+  --online-indicator: hsl(145 60% 55%);
+  --typing-indicator: hsl(145 40% 50%);
   
   /* Message tick colors - WhatsApp style (dark mode) */
-  --tick-sent: oklch(0.9 0 0 / 0.8);           /* White tick for sent */
-  --tick-delivered: oklch(0.9 0 0 / 0.8);       /* White ticks for delivered */
-  --tick-read: oklch(0.7 0.2 180);             /* Bright cyan/teal for read */
+  --tick-sent: hsla(0 0% 90% / 0.85);
+  --tick-delivered: hsla(0 0% 90% / 0.85);
+  --tick-read: hsl(185 80% 60%);
   
   /* Gradient backgrounds - dark mode deep blacks with green */
-  --gradient-start: oklch(0.14 0.02 145);
-  --gradient-mid: oklch(0.11 0.012 145);
-  --gradient-end: oklch(0.13 0.018 145);
+  --gradient-start: hsl(145 25% 8%);
+  --gradient-mid: hsl(145 30% 6%);
+  --gradient-end: hsl(145 20% 10%);
   
-  --sidebar: oklch(0.14 0.015 145 / 0.75);
-  --sidebar-foreground: oklch(0.95 0.008 145);
-  --sidebar-primary: oklch(0.6 0.14 145);
-  --sidebar-primary-foreground: oklch(0.1 0.02 145);
-  --sidebar-accent: oklch(0.25 0.015 145);
-  --sidebar-accent-foreground: oklch(0.95 0.008 145);
-  --sidebar-border: oklch(0.3 0.015 145 / 0.3);
-  --sidebar-ring: oklch(0.6 0.14 145);
+  --sidebar: hsla(145 25% 10% / 0.8);
+  --sidebar-foreground: hsl(145 15% 95%);
+  --sidebar-primary: hsl(145 55% 50%);
+  --sidebar-primary-foreground: hsl(145 25% 5%);
+  --sidebar-accent: hsl(145 20% 18%);
+  --sidebar-accent-foreground: hsl(145 15% 95%);
+  --sidebar-border: hsla(145 15% 95% / 0.1);
+  --sidebar-ring: hsl(145 55% 50%);
   
-  --chart-1: oklch(0.6 0.14 145);
-  --chart-2: oklch(0.5 0.12 145);
-  --chart-3: oklch(0.7 0.1 145);
-  --chart-4: oklch(0.4 0.08 145);
-  --chart-5: oklch(0.55 0.15 145);
+  --chart-1: hsl(145 55% 50%);
+  --chart-2: hsl(145 45% 45%);
+  --chart-3: hsl(145 50% 60%);
+  --chart-4: hsl(145 35% 35%);
+  --chart-5: hsl(145 40% 55%);
 }
 
 /* Accessibility toggles (driven by SettingsProvider classNames on <html>) */

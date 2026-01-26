@@ -23,9 +23,9 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
       className={cn(
         'fixed bottom-8 left-1/2 -translate-x-1/2 z-50',
         'flex items-center p-1.5 gap-1',
-        'rounded-[2.5rem] bg-[rgba(15,15,15,0.4)]',
-        'backdrop-blur-2xl border border-white/5',
-        'shadow-[0_20px_50px_rgba(0,0,0,0.5)]',
+        'rounded-[2.5rem] bg-foreground/10',
+        'backdrop-blur-2xl border border-foreground/5',
+        'shadow-[0_20px_50px_rgba(0,0,0,0.2)]',
         'safe-area-bottom'
       )}
     >
@@ -41,7 +41,7 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
             className={cn(
               'relative flex flex-col items-center justify-center min-w-[72px] px-2 py-2.5 rounded-[2rem]',
               'transition-colors duration-300 outline-none select-none',
-              isActive ? 'text-white' : 'text-white/40 hover:text-white/60'
+              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/60'
             )}
             aria-label={tab.label}
           >
@@ -51,11 +51,11 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
                 layoutId="active-pill"
                 className={cn(
                   'absolute inset-0 z-0 rounded-[2rem]',
-                  'bg-white/[0.08]',
+                  'bg-foreground/[0.08]',
                   'backdrop-blur-md',
-                  'border border-white/20',
-                  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_12px_rgba(0,0,0,0.3)]',
-                  'before:absolute before:inset-0 before:rounded-[2rem] before:bg-gradient-to-b before:from-white/10 before:to-transparent'
+                  'border border-foreground/20',
+                  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.1)]',
+                  'before:absolute before:inset-0 before:rounded-[2rem] before:bg-gradient-to-b before:from-foreground/10 before:to-transparent'
                 )}
                 transition={{
                   type: 'spring',

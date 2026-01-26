@@ -144,34 +144,20 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
               </button>
 
               {/* Liquid Glass Dropdown Menu - Green Accent */}
-              <div
-                className={cn(
-                  "absolute right-0 top-full mt-2 w-52 py-2 rounded-2xl z-50",
-                  "origin-top-right transition-all duration-300 ease-out",
-                  isMenuOpen 
-                    ? "opacity-100 scale-100 translate-y-0" 
-                    : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
-                )}
-                style={{
-                  background: 'linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(240,253,244,0.7) 50%, rgba(255,255,255,0.8) 100%)',
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
-                  border: '1px solid rgba(134,239,172,0.3)',
-                  boxShadow: `
-                    0 16px 48px rgba(22,163,74,0.1),
-                    0 4px 16px rgba(0,0,0,0.08),
-                    inset 0 1px 0 rgba(255,255,255,0.8),
-                    inset 0 -1px 0 rgba(187,247,208,0.3)
-                  `,
-                }}
-              >
-                {/* Top highlight for glass refraction */}
-                <span 
-                  className="absolute top-2 left-4 right-4 h-px pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(187,247,208,0.8), transparent)',
-                  }}
-                />
+                <div
+                  className={cn(
+                    "absolute right-0 top-full mt-2 w-52 py-2 rounded-2xl z-50",
+                    "origin-top-right transition-all duration-300 ease-out",
+                    "bg-popover/80 backdrop-blur-2xl border border-primary/20 shadow-xl",
+                    isMenuOpen 
+                      ? "opacity-100 scale-100 translate-y-0" 
+                      : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                  )}
+                >
+                  {/* Top highlight for glass refraction */}
+                  <span 
+                    className="absolute top-2 left-4 right-4 h-px pointer-events-none bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+                  />
                 
                 {menuItems.map((item) => (
                   <button
