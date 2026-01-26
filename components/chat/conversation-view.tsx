@@ -692,8 +692,8 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         onUnblock={handleUnblockUser}
       />
 
-      {/* Header */}
-      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20">
+      {/* Header - sticky to stay fixed on mobile */}
+      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0">
         <button
           type="button"
           onClick={onBack}
