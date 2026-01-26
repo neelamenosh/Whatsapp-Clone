@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from './supabase/client';
 import * as supabaseUsers from './supabase/users';
 import type { User } from './types';
 
-// Session storage key (per-tab user session)
+// Local storage key for persistent user session
 const SESSION_USER_KEY = 'whatsapp_session_user';
 // Local storage keys for fallback
 const REGISTERED_USERS_KEY = 'whatsapp_enterprise_users';
@@ -47,7 +47,7 @@ async function registerWithSupabase(userData: {
 }): Promise<{ user: User | null; error: string | null }> {
   const displayName = `${userData.firstName} ${userData.lastName}`;
   const username = userData.email.split('@')[0] + '_' + Date.now().toString(36);
-  
+
   const result = await supabaseUsers.registerUser(
     userData.email,
     username,
@@ -60,10 +60,10 @@ async function registerWithSupabase(userData: {
   }
 
   const appUser = supabaseToAppUser(result.user);
-  
-  // Store in sessionStorage for this tab
-  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(appUser));
-  
+
+  // Store in localStorage for persistent session across browser restarts
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(appUser));
+
   return { user: appUser, error: null };
 }
 
@@ -78,10 +78,10 @@ async function loginWithSupabase(
   }
 
   const appUser = supabaseToAppUser(result.user);
-  
-  // Store in sessionStorage for this tab only
-  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(appUser));
-  
+
+  // Store in localStorage for persistent session
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(appUser));
+
   return { user: appUser, error: null };
 }
 
@@ -114,7 +114,7 @@ function registerWithLocal(userData: {
   phone?: string;
 }): { user: User | null; error: string | null } {
   const users = getLocalUsers();
-  
+
   // Check if email exists
   if (users.some(u => u.email?.toLowerCase() === userData.email.toLowerCase())) {
     return { user: null, error: 'Email already registered' };
@@ -132,30 +132,30 @@ function registerWithLocal(userData: {
 
   users.push(newUser);
   saveLocalUsers(users);
-  
-  // Store in sessionStorage for this tab
-  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(newUser));
-  
+
+  // Store in localStorage for persistent session
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(newUser));
+
   return { user: newUser, error: null };
 }
 
 function loginWithLocal(email: string): { user: User | null; error: string | null } {
   const users = getLocalUsers();
   const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-  
+
   if (!user) {
     return { user: null, error: 'No account found with this email' };
   }
 
   const loggedInUser = { ...user, status: 'online' as const };
-  
+
   // Update in storage
   const updatedUsers = users.map(u => u.id === user.id ? loggedInUser : u);
   saveLocalUsers(updatedUsers);
-  
-  // Store in sessionStorage for this tab
-  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(loggedInUser));
-  
+
+  // Store in localStorage for persistent session
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(loggedInUser));
+
   return { user: loggedInUser, error: null };
 }
 
@@ -189,9 +189,9 @@ export async function loginUser(
 // Get current logged in user (from sessionStorage - per-tab)
 export function getCurrentUser(): User | null {
   if (typeof window === 'undefined') return null;
-  
+
   try {
-    const stored = sessionStorage.getItem(SESSION_USER_KEY);
+    const stored = localStorage.getItem(SESSION_USER_KEY);
     if (!stored) return null;
     return JSON.parse(stored);
   } catch {
@@ -199,34 +199,34 @@ export function getCurrentUser(): User | null {
   }
 }
 
-// Set current user (update in sessionStorage)
+// Set current user (update in localStorage)
 export function setCurrentUser(user: User): void {
   if (typeof window === 'undefined') return;
-  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
 }
 
 // Clear current user (logout)
 export function clearCurrentUser(): void {
   if (typeof window === 'undefined') return;
-  
+
   const user = getCurrentUser();
   if (user && isSupabaseConfigured()) {
     // Update online status in Supabase
     supabaseUsers.updateUserStatus(user.id, 'offline');
   }
-  
-  sessionStorage.removeItem(SESSION_USER_KEY);
+
+  localStorage.removeItem(SESSION_USER_KEY);
 }
 
 // Get all other users (for chat list)
 export async function getOtherUsers(): Promise<User[]> {
   const currentUser = getCurrentUser();
-  
+
   if (isSupabaseConfigured()) {
     const allUsers = await getAllUsersFromSupabase();
     return currentUser ? allUsers.filter(u => u.id !== currentUser.id) : allUsers;
   }
-  
+
   const allUsers = getLocalUsers();
   return currentUser ? allUsers.filter(u => u.id !== currentUser.id) : allUsers;
 }
@@ -251,7 +251,7 @@ export async function findUserById(id: string): Promise<User | null> {
     const su = await supabaseUsers.getUserById(id);
     return su ? supabaseToAppUser(su) : null;
   }
-  
+
   const users = getLocalUsers();
   return users.find(u => u.id === id) || null;
 }
@@ -269,7 +269,7 @@ export async function updateUserProfile(
       phone: updates.phone,
       status: updates.status,
     });
-    
+
     if (result.user) {
       const appUser = supabaseToAppUser(result.user);
       // Update session
@@ -281,25 +281,25 @@ export async function updateUserProfile(
     }
     return { user: null, error: result.error };
   }
-  
+
   // Local update
   const users = getLocalUsers();
   const userIndex = users.findIndex(u => u.id === userId);
-  
+
   if (userIndex === -1) {
     return { user: null, error: 'User not found' };
   }
-  
+
   const updatedUser = { ...users[userIndex], ...updates };
   users[userIndex] = updatedUser;
   saveLocalUsers(users);
-  
+
   // Update session if current user
   const currentUser = getCurrentUser();
   if (currentUser?.id === userId) {
     setCurrentUser(updatedUser);
   }
-  
+
   return { user: updatedUser, error: null };
 }
 
@@ -312,25 +312,25 @@ export function isDatabaseConfigured(): boolean {
 export async function updateOnlineStatus(status: 'online' | 'offline' | 'away'): Promise<void> {
   const user = getCurrentUser();
   if (!user) return;
-  
+
   if (isSupabaseConfigured()) {
     await supabaseUsers.updateUserStatus(user.id, status);
   }
-  
+
   // Also update session storage
   setCurrentUser({ ...user, status });
 }
 
 // Initialize presence tracking (call on app mount)
 export function initPresenceTracking(): () => void {
-  if (typeof window === 'undefined') return () => {};
-  
+  if (typeof window === 'undefined') return () => { };
+
   const user = getCurrentUser();
-  if (!user) return () => {};
-  
+  if (!user) return () => { };
+
   // Set online on init
   updateOnlineStatus('online');
-  
+
   // Handle visibility changes
   const handleVisibilityChange = () => {
     if (document.hidden) {
@@ -339,33 +339,33 @@ export function initPresenceTracking(): () => void {
       updateOnlineStatus('online');
     }
   };
-  
+
   // Handle before unload (user leaving)
   const handleBeforeUnload = () => {
     updateOnlineStatus('offline');
   };
-  
+
   // Handle online/offline events
   const handleOnline = () => {
     updateOnlineStatus('online');
   };
-  
+
   const handleOffline = () => {
     updateOnlineStatus('offline');
   };
-  
+
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('beforeunload', handleBeforeUnload);
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
-  
+
   // Heartbeat to keep status updated (every 30 seconds)
   const heartbeatInterval = setInterval(() => {
     if (!document.hidden) {
       updateOnlineStatus('online');
     }
   }, 30000);
-  
+
   return () => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -386,7 +386,7 @@ export async function deleteUserAccount(): Promise<{ success: boolean; error: st
     if (isSupabaseConfigured()) {
       // Import dynamically to avoid circular dependency
       const { deleteUserMessages } = await import('./supabase/messages');
-      
+
       // First delete all user's messages
       const messagesResult = await deleteUserMessages(user.id);
       if (messagesResult.error) {
@@ -407,7 +407,7 @@ export async function deleteUserAccount(): Promise<{ success: boolean; error: st
 
     // Clear session
     clearCurrentUser();
-    
+
     // Clear local storage related to this user
     if (typeof window !== 'undefined') {
       // Clear any user-specific data
