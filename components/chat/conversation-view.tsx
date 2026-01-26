@@ -11,6 +11,7 @@ import { Virtuoso } from 'react-virtuoso';
 import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseMessages from '@/lib/supabase/messages';
+import * as supabaseUsers from '@/lib/supabase/users';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { 
@@ -75,10 +76,37 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     
     loadMessages();
     
-    // Check if participant is online
-    const liveChatService = getLiveChatService();
-    setIsOnline(liveChatService.isUserOnline(participant.id));
+    // Check if participant is online from Supabase
+    const checkOnlineStatus = async () => {
+      if (isSupabaseConfigured()) {
+        const statusData = await supabaseUsers.getUserStatus(participant.id);
+        if (statusData) {
+          setIsOnline(statusData.status === 'online');
+        }
+      } else {
+        const liveChatService = getLiveChatService();
+        setIsOnline(liveChatService.isUserOnline(participant.id));
+      }
+    };
+    checkOnlineStatus();
   }, [consistentChatId, participant.id, loggedInUser]);
+
+  // Subscribe to participant's online status changes via Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    
+    const unsubscribe = supabaseUsers.subscribeToUserStatus(participant.id, (status, lastSeen) => {
+      setIsOnline(status === 'online');
+      // Update participant's lastSeen if needed
+      if (participant.lastSeen !== lastSeen) {
+        participant.lastSeen = new Date(lastSeen);
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [participant.id]);
 
   // Listen for incoming messages (both Supabase real-time and localStorage)
   useEffect(() => {

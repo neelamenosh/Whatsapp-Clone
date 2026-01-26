@@ -307,3 +307,70 @@ export async function updateUserProfile(
 export function isDatabaseConfigured(): boolean {
   return isSupabaseConfigured();
 }
+
+// Update current user's online status
+export async function updateOnlineStatus(status: 'online' | 'offline' | 'away'): Promise<void> {
+  const user = getCurrentUser();
+  if (!user) return;
+  
+  if (isSupabaseConfigured()) {
+    await supabaseUsers.updateUserStatus(user.id, status);
+  }
+  
+  // Also update session storage
+  setCurrentUser({ ...user, status });
+}
+
+// Initialize presence tracking (call on app mount)
+export function initPresenceTracking(): () => void {
+  if (typeof window === 'undefined') return () => {};
+  
+  const user = getCurrentUser();
+  if (!user) return () => {};
+  
+  // Set online on init
+  updateOnlineStatus('online');
+  
+  // Handle visibility changes
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      updateOnlineStatus('away');
+    } else {
+      updateOnlineStatus('online');
+    }
+  };
+  
+  // Handle before unload (user leaving)
+  const handleBeforeUnload = () => {
+    updateOnlineStatus('offline');
+  };
+  
+  // Handle online/offline events
+  const handleOnline = () => {
+    updateOnlineStatus('online');
+  };
+  
+  const handleOffline = () => {
+    updateOnlineStatus('offline');
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+  
+  // Heartbeat to keep status updated (every 30 seconds)
+  const heartbeatInterval = setInterval(() => {
+    if (!document.hidden) {
+      updateOnlineStatus('online');
+    }
+  }, 30000);
+  
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+    clearInterval(heartbeatInterval);
+  };
+}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { TabType, Chat } from '@/lib/types';
 import { calls, getChatById, setCurrentUserData } from '@/lib/mock-data';
-import { getCurrentUser, isDatabaseConfigured } from '@/lib/auth-store';
+import { getCurrentUser, isDatabaseConfigured, initPresenceTracking } from '@/lib/auth-store';
 import { getUserChats, saveUserChats } from '@/lib/chat-store';
 import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { TabBar } from './navigation/tab-bar';
@@ -39,7 +39,14 @@ export function AppShell() {
       // Initialize live chat service
       getLiveChatService();
       
+      // Initialize presence tracking (sets user online and tracks visibility)
+      const cleanupPresence = initPresenceTracking();
+      
       setIsLoading(false);
+      
+      return () => {
+        cleanupPresence();
+      };
     }
   }, [router]);
 

@@ -221,3 +221,89 @@ export async function updateUserStatus(id: string, status: 'online' | 'offline' 
     // Silent fail for status updates
   }
 }
+
+// Subscribe to user status changes (real-time)
+export function subscribeToUserStatus(
+  userId: string,
+  onStatusChange: (status: 'online' | 'offline' | 'away', lastSeen: string) => void
+): (() => void) | null {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  const channel = supabase
+    .channel(`user-status:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${userId}`,
+      },
+      (payload) => {
+        const newData = payload.new as any;
+        onStatusChange(
+          newData.status || 'offline',
+          newData.last_seen || new Date().toISOString()
+        );
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (supabase) supabase.removeChannel(channel);
+  };
+}
+
+// Subscribe to all users status changes (for chat list)
+export function subscribeToAllUsersStatus(
+  onStatusChange: (userId: string, status: 'online' | 'offline' | 'away', lastSeen: string) => void
+): (() => void) | null {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  const channel = supabase
+    .channel('all-users-status')
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+      },
+      (payload) => {
+        const newData = payload.new as any;
+        if (newData.id) {
+          onStatusChange(
+            newData.id,
+            newData.status || 'offline',
+            newData.last_seen || new Date().toISOString()
+          );
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (supabase) supabase.removeChannel(channel);
+  };
+}
+
+// Get user's current status from database
+export async function getUserStatus(userId: string): Promise<{ status: 'online' | 'offline' | 'away'; lastSeen: string } | null> {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('status, last_seen')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) return null;
+    return {
+      status: (data.status as 'online' | 'offline' | 'away') || 'offline',
+      lastSeen: data.last_seen || new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}

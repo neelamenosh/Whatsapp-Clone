@@ -6,6 +6,7 @@ export interface User {
   status: 'online' | 'offline' | 'away';
   lastSeen?: Date;
   about?: string;
+  phone?: string;
 }
 
 export interface Message {

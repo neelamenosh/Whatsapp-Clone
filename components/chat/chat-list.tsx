@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { chats as initialChats } from '@/lib/mock-data';
 import { getCurrentUser } from '@/lib/auth-store';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import * as supabaseUsers from '@/lib/supabase/users';
 import { ChatListItem } from './chat-list-item';
 import { NewChatModal } from './new-chat-modal';
 import { ProfileModal } from '@/components/profile/profile-modal';
@@ -39,6 +41,32 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
     const user = getCurrentUser();
     setCurrentUser(user);
   }, [isProfileOpen]); // Refresh when profile closes
+
+  // Subscribe to all users' status changes via Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    
+    const unsubscribe = supabaseUsers.subscribeToAllUsersStatus((userId, status, lastSeen) => {
+      // Update the status of participants in chats
+      onChatsChange(chats.map(chat => {
+        const participantIndex = chat.participants.findIndex(p => p.id === userId);
+        if (participantIndex !== -1) {
+          const updatedParticipants = [...chat.participants];
+          updatedParticipants[participantIndex] = {
+            ...updatedParticipants[participantIndex],
+            status,
+            lastSeen: new Date(lastSeen),
+          };
+          return { ...chat, participants: updatedParticipants };
+        }
+        return chat;
+      }));
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [chats, onChatsChange]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
