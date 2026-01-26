@@ -54,6 +54,9 @@ CREATE POLICY "Users can update own profile" ON users
 CREATE POLICY "Anyone can insert users" ON users
   FOR INSERT WITH CHECK (true);
 
+CREATE POLICY "Users can delete their account" ON users
+  FOR DELETE USING (true);
+
 -- Policies for messages table
 CREATE POLICY "Users can view their own messages" ON messages
   FOR SELECT USING (true);
@@ -63,6 +66,9 @@ CREATE POLICY "Users can insert messages" ON messages
 
 CREATE POLICY "Users can update their own messages" ON messages
   FOR UPDATE USING (true);
+
+CREATE POLICY "Users can delete messages" ON messages
+  FOR DELETE USING (true);
 
 -- Enable Realtime for messages and users tables
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
