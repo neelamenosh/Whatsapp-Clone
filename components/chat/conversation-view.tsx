@@ -53,6 +53,8 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [isBlockedBySupabase, setIsBlockedBySupabase] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -394,11 +396,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const handleClearChat = async () => {
     if (!loggedInUser) return;
     
-    const confirmed = window.confirm('Are you sure you want to clear all messages? This action cannot be undone.');
-    if (!confirmed) return;
-    
     setIsClearing(true);
-    setShowMenu(false);
     
     try {
       // Clear from Supabase if configured
@@ -407,6 +405,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
         if (result.error) {
           console.error('Failed to clear chat from Supabase:', result.error);
           alert('Failed to clear chat. Please try again.');
+          setShowClearConfirm(false);
           return;
         }
       }
@@ -418,6 +417,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
       const liveChatService = getLiveChatService();
       localStorage.removeItem(`whatsapp_messages_${consistentChatId}`);
       
+      setShowClearConfirm(false);
     } catch (err) {
       console.error('Error clearing chat:', err);
       alert('Failed to clear chat. Please try again.');
@@ -429,8 +429,6 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   // Handle block user
   const handleBlockUser = async () => {
     if (!loggedInUser || isGroup) return;
-    
-    setShowMenu(false);
     
     // Update local settings
     updateSettings((prev) => ({
@@ -450,6 +448,8 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
         setIsBlockedBySupabase(true);
       }
     }
+    
+    setShowBlockConfirm(false);
   };
 
   // Handle unblock user
@@ -619,7 +619,10 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
                 {/* Clear Chat */}
                 <button
                   type="button"
-                  onClick={handleClearChat}
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowClearConfirm(true);
+                  }}
                   disabled={isClearing}
                   className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
                 >
@@ -635,7 +638,14 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
                 {!isGroup && (
                   <button
                     type="button"
-                    onClick={isBlocked ? handleUnblockUser : handleBlockUser}
+                    onClick={() => {
+                      setShowMenu(false);
+                      if (isBlocked) {
+                        handleUnblockUser();
+                      } else {
+                        setShowBlockConfirm(true);
+                      }
+                    }}
                     className={cn(
                       'w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left',
                       isBlocked ? 'text-primary' : 'text-destructive'
@@ -659,6 +669,86 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
           </div>
         </div>
       </div>
+
+      {/* Clear Chat Confirmation Modal */}
+      {showClearConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-4 glass-panel rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-8 w-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Clear Chat?</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Are you sure you want to delete all messages with <span className="font-medium text-foreground">{participant.name}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(false)}
+                  disabled={isClearing}
+                  className="flex-1 px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-medium rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  disabled={isClearing}
+                  className="flex-1 px-4 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {isClearing ? 'Clearing...' : 'Clear'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block Contact Confirmation Modal */}
+      {showBlockConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowBlockConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-4 glass-panel rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Ban className="h-8 w-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Block {participant.name}?</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Blocked contacts will no longer be able to send you messages. You can unblock them anytime.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowBlockConfirm(false)}
+                  className="flex-1 px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-medium rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBlockUser}
+                  className="flex-1 px-4 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium rounded-xl transition-colors"
+                >
+                  Block
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search Bar */}
       {showSearch && (
