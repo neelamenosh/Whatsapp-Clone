@@ -8,7 +8,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex">
+    <div className="h-[100dvh] flex overflow-hidden">
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/90 via-primary to-primary/80 relative overflow-hidden">
         {/* Background Pattern */}
@@ -76,9 +76,11 @@ export default function AuthLayout({
       </div>
       
       {/* Right Panel - Auth Forms */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background overflow-y-auto">
-        <div className="w-full max-w-md py-8">
-          {children}
+      <div className="flex-1 h-full overflow-y-auto bg-background">
+        <div className="min-h-full flex items-center justify-center p-6 sm:p-8">
+          <div className="w-full max-w-md py-6 sm:py-8">
+            {children}
+          </div>
         </div>
       </div>
     </div>
