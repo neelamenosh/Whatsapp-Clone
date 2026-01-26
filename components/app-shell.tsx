@@ -8,6 +8,8 @@ import { calls, getChatById, setCurrentUserData } from '@/lib/mock-data';
 import { getCurrentUser, isDatabaseConfigured, initPresenceTracking } from '@/lib/auth-store';
 import { getUserChats, saveUserChats } from '@/lib/chat-store';
 import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import * as supabaseMessages from '@/lib/supabase/messages';
 import { TabBar } from './navigation/tab-bar';
 import { ChatList } from './chat/chat-list';
 import { ConversationView } from './chat/conversation-view';
@@ -57,7 +59,8 @@ export function AppShell() {
     const liveChatService = getLiveChatService();
     const currentUser = getCurrentUser();
     
-    const unsubMessage = liveChatService.onMessage((chatId, message) => {
+    // Helper function to update chat list with new message
+    const handleNewMessage = (chatId: string, message: any, senderId: string) => {
       setChats((prev) => {
         // Find chat by ID or by matching the consistent chat ID with participants
         let chatIndex = prev.findIndex(c => c.id === chatId);
@@ -81,7 +84,7 @@ export function AppShell() {
           updatedAt: new Date(),
           unreadCount: selectedChatId === chatId || selectedChatId === updated[chatIndex].id
             ? updated[chatIndex].unreadCount 
-            : updated[chatIndex].unreadCount + 1,
+            : (senderId !== currentUser?.id ? updated[chatIndex].unreadCount + 1 : updated[chatIndex].unreadCount),
         };
         
         // Sort by updatedAt
@@ -92,7 +95,32 @@ export function AppShell() {
         
         return updated;
       });
+    };
+    
+    // Subscribe to localStorage/BroadcastChannel updates
+    const unsubMessage = liveChatService.onMessage((chatId, message) => {
+      handleNewMessage(chatId, message, message.senderId);
     });
+
+    // Subscribe to Supabase real-time messages if configured
+    let supabaseUnsubscribe: (() => void) | null = null;
+    if (isSupabaseConfigured() && currentUser) {
+      const channel = supabaseMessages.subscribeToMessages(currentUser.id, (msg) => {
+        const formattedMessage = {
+          id: msg.id,
+          senderId: msg.senderId,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          status: msg.status,
+          type: msg.type,
+        };
+        handleNewMessage(msg.chatId, formattedMessage, msg.senderId);
+      });
+      
+      if (channel) {
+        supabaseUnsubscribe = () => supabaseMessages.unsubscribe(channel);
+      }
+    }
 
     // Listen for new chats (when someone sends you a message for the first time)
     const unsubNewChat = liveChatService.onNewChat((newChat) => {
@@ -111,6 +139,7 @@ export function AppShell() {
     return () => {
       unsubMessage();
       unsubNewChat();
+      if (supabaseUnsubscribe) supabaseUnsubscribe();
     };
   }, [isLoading, selectedChatId]);
 
