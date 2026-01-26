@@ -222,6 +222,12 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
                 chat={chat}
                 isSelected={selectedChatId === chat.id}
                 onClick={() => onSelectChat(chat.id)}
+                onChatUpdate={(updatedChat) => {
+                  onChatsChange(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+                }}
+                onChatDelete={(chatId) => {
+                  onChatsChange(chats.filter(c => c.id !== chatId));
+                }}
               />
             ))}
           </div>
@@ -240,6 +246,12 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
                 chat={chat}
                 isSelected={selectedChatId === chat.id}
                 onClick={() => onSelectChat(chat.id)}
+                onChatUpdate={(updatedChat) => {
+                  onChatsChange(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+                }}
+                onChatDelete={(chatId) => {
+                  onChatsChange(chats.filter(c => c.id !== chatId));
+                }}
               />
             ))}
           </div>
