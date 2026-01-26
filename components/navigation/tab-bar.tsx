@@ -8,15 +8,13 @@ import { motion } from 'framer-motion';
 interface TabBarProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  unreadChats?: number;
-  missedCalls?: number;
 }
 
-export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 0 }: TabBarProps) {
-  const tabs: { id: TabType; label: string; icon: typeof MessageSquare; badge?: number }[] = [
-    { id: 'chats', label: 'Chats', icon: MessageSquare, badge: unreadChats },
+export function TabBar({ activeTab, onTabChange }: TabBarProps) {
+  const tabs: { id: TabType; label: string; icon: typeof MessageSquare }[] = [
+    { id: 'chats', label: 'Chats', icon: MessageSquare },
     { id: 'status', label: 'Status', icon: Circle },
-    { id: 'calls', label: 'Calls', icon: Phone, badge: missedCalls },
+    { id: 'calls', label: 'Calls', icon: Phone },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -76,17 +74,6 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
                     isActive && 'scale-110'
                   )} 
                 />
-                
-                {/* Badge */}
-                {tab.badge && tab.badge > 0 && (
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#2AABEE] text-white flex items-center justify-center text-[10px] font-bold border-2 border-[rgba(20,20,20,0.8)] shadow-lg shadow-[#2AABEE]/20"
-                  >
-                    {tab.badge > 99 ? '99+' : tab.badge}
-                  </motion.div>
-                )}
               </div>
               
               <span className={cn(

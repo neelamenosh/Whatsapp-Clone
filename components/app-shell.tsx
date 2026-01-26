@@ -381,11 +381,9 @@ export function AppShell() {
     };
   }, [chats, isLoading]);
 
-  const selectedChat = selectedChatId ? (chats.find(c => c.id === selectedChatId) || getChatById(selectedChatId)) : null;
-  const unreadChats = chats.reduce((acc, chat) => acc + chat.unreadCount, 0);
-  const missedCalls = calls.filter((call) => call.status === 'missed').length;
+    const selectedChat = selectedChatId ? (chats.find(c => c.id === selectedChatId) || getChatById(selectedChatId)) : null;
 
-  const handleSelectChat = (chatId: string) => {
+    const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
     
     // Push state to browser history so back button returns to chat list
@@ -510,14 +508,12 @@ export function AppShell() {
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
 
       {/* Tab bar - hide when viewing a conversation */}
-      {!selectedChat && (
-        <TabBar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          unreadChats={unreadChats}
-          missedCalls={missedCalls}
-        />
-      )}
+        {!selectedChat && (
+          <TabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        )}
     </div>
   );
 }
