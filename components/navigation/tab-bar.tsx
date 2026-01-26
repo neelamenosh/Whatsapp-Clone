@@ -19,11 +19,12 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  return (
+    return (
     <nav 
       className={cn(
         // Floating dock positioning
         'fixed bottom-6 left-1/2 -translate-x-1/2 z-50',
+        'flex items-center gap-1',
         // Pill/capsule shape with smooth corners
         'rounded-[32px] px-3 py-2',
         // Dark glassmorphism background
