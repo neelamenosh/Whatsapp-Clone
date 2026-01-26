@@ -123,6 +123,10 @@ export function AppShell() {
                 });
               }
             }
+            
+            // Mark all pending messages as delivered since user is now online
+            // This updates the sender's messages from 'sent' (single tick) to 'delivered' (double tick)
+            await supabaseMessages.markMessagesAsDelivered(currentUser.id);
           } catch (err) {
             console.error('Failed to load Supabase chats:', err);
           }

@@ -124,6 +124,59 @@ CREATE POLICY "Users can delete from blocked list" ON blocked_users
 ALTER PUBLICATION supabase_realtime ADD TABLE blocked_users;
 
 -- ===========================================
+-- READ RECEIPTS TABLE
+-- ===========================================
+-- Tracks message delivery and read status for enterprise-level receipts
+
+CREATE TABLE IF NOT EXISTS read_receipts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  recipient_id TEXT NOT NULL,
+  delivered_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes for read_receipts performance
+CREATE INDEX IF NOT EXISTS idx_read_receipts_message_id ON read_receipts(message_id);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_recipient_id ON read_receipts(recipient_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_read_receipts_unique ON read_receipts(message_id, recipient_id);
+
+-- Enable Row Level Security for read_receipts
+ALTER TABLE read_receipts ENABLE ROW LEVEL SECURITY;
+
+-- Policies for read_receipts table
+CREATE POLICY "Users can view their receipts" ON read_receipts
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert receipts" ON read_receipts
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can update receipts" ON read_receipts
+  FOR UPDATE USING (true);
+
+-- Enable Realtime for read_receipts
+ALTER PUBLICATION supabase_realtime ADD TABLE read_receipts;
+
+-- Function to auto-create receipt when message is inserted
+CREATE OR REPLACE FUNCTION create_read_receipt()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO read_receipts (message_id, recipient_id)
+  VALUES (NEW.id, NEW.recipient_id)
+  ON CONFLICT (message_id, recipient_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-create read receipt on message insert
+DROP TRIGGER IF EXISTS trigger_create_read_receipt ON messages;
+CREATE TRIGGER trigger_create_read_receipt
+  AFTER INSERT ON messages
+  FOR EACH ROW
+  EXECUTE FUNCTION create_read_receipt();
+
+-- ===========================================
 -- STORAGE BUCKET FOR AVATARS
 -- ===========================================
 -- Note: Run these commands in Supabase Dashboard -> Storage -> Create Bucket

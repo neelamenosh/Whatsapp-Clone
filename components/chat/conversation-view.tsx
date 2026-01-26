@@ -150,6 +150,11 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           type: msg.type,
         }));
         setMessages(formattedMsgs);
+        
+        // Mark all received messages as read when opening the chat
+        // This sends read receipts to the sender
+        const chatId = supabaseMessages.getChatId(loggedInUserId, participantId);
+        supabaseMessages.markMessagesAsRead(chatId, loggedInUserId);
       } else {
         // Fallback to localStorage
         const liveChatService = getLiveChatService();
@@ -187,13 +192,49 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
     if (!isSupabaseConfigured()) return;
     
     const unsubscribe = supabaseUsers.subscribeToUserStatus(participantId, (status, lastSeen) => {
-      setIsOnline(status === 'online');
+      const wasOnline = isOnline;
+      const nowOnline = status === 'online';
+      setIsOnline(nowOnline);
+      
+      // If recipient just came online, update pending messages to 'delivered'
+      if (!wasOnline && nowOnline && loggedInUserId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === loggedInUserId && m.status === 'sent'
+              ? { ...m, status: 'delivered' }
+              : m
+          )
+        );
+      }
     });
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [participantId]);
+  }, [participantId, isOnline, loggedInUserId]);
+
+  // Subscribe to message status changes (for read receipts from recipient)
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !loggedInUserId) return;
+    
+    const statusChannel = supabaseMessages.subscribeToMessageStatusChanges(
+      loggedInUserId,
+      (messageId, newStatus) => {
+        // Update local message status when we get a status change notification
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, status: newStatus } : m
+          )
+        );
+      }
+    );
+
+    return () => {
+      if (statusChannel) {
+        supabaseMessages.unsubscribe(statusChannel);
+      }
+    };
+  }, [loggedInUserId]);
 
   // Listen for incoming messages (both Supabase real-time and localStorage)
   useEffect(() => {
@@ -245,6 +286,10 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             }
             return [...prev, formattedMsg];
           });
+          
+          // Mark message as read immediately since chat is open
+          // This sends read receipt back to the sender
+          supabaseMessages.markMessagesAsRead(chatId, loggedInUserId);
         }
       });
     }
@@ -393,10 +438,13 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       );
     }
 
-    // Update message status - use functional update to find message by content/timestamp
-    // to handle cases where ID might have been updated by Supabase
+    // Update message status based on recipient's online status
+    // - If recipient is OFFLINE: stays at 'sent' (single tick)
+    // - If recipient is ONLINE: moves to 'delivered' (double tick)
+    // - When recipient reads: moves to 'read' (blue/green double tick)
     const messageTimestamp = newMessage.timestamp.getTime();
     
+    // After a short delay, mark as 'sent' (message reached server)
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) =>
@@ -405,29 +453,25 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             : m
         )
       );
-    }, 300);
-
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
-            ? { ...m, status: 'delivered' } 
-            : m
-        )
-      );
-    }, 800);
-
-    setTimeout(() => {
-      if (settings.privacy.readReceipts) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
-              ? { ...m, status: 'read' } 
-              : m
-          )
-        );
+      
+      // If recipient is online, mark as delivered after another short delay
+      if (isOnline) {
+        setTimeout(() => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              (m.id === messageId || (m.senderId === loggedInUser.id && m.timestamp.getTime() === messageTimestamp)) 
+                ? { ...m, status: 'delivered' } 
+                : m
+            )
+          );
+          
+          // Update in Supabase if configured
+          if (isSupabaseConfigured()) {
+            supabaseMessages.updateMessageStatus(messageId, 'delivered').catch(console.error);
+          }
+        }, 300);
       }
-    }, 1500);
+    }, 300);
   };
 
   // Handle clear chat

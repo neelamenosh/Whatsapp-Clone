@@ -163,15 +163,87 @@ export async function markMessagesAsRead(
   if (!isSupabaseConfigured() || !supabase) return;
 
   try {
+    // Update messages status
     await supabase
       .from('messages')
       .update({ status: 'read' })
       .eq('chat_id', chatId)
       .eq('recipient_id', recipientId)
       .neq('status', 'read');
+    
+    // Also update read_receipts table if it exists
+    const { error: receiptsError } = await supabase
+      .from('read_receipts')
+      .update({ read_at: new Date().toISOString() })
+      .eq('recipient_id', recipientId)
+      .is('read_at', null);
+    
+    // Silent fail for receipts update (table might not exist yet)
+    if (receiptsError) {
+      console.debug('Read receipts table may not exist:', receiptsError.message);
+    }
   } catch {
     // Silent fail
   }
+}
+
+// Mark messages as delivered (when recipient comes online)
+export async function markMessagesAsDelivered(
+  recipientId: string
+): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    // Update all messages where this user is the recipient and status is 'sent'
+    await supabase
+      .from('messages')
+      .update({ status: 'delivered' })
+      .eq('recipient_id', recipientId)
+      .eq('status', 'sent');
+    
+    // Also update read_receipts table if it exists
+    const { error: receiptsError } = await supabase
+      .from('read_receipts')
+      .update({ delivered_at: new Date().toISOString() })
+      .eq('recipient_id', recipientId)
+      .is('delivered_at', null);
+    
+    // Silent fail for receipts update (table might not exist yet)
+    if (receiptsError) {
+      console.debug('Read receipts table may not exist:', receiptsError.message);
+    }
+  } catch {
+    // Silent fail
+  }
+}
+
+// Subscribe to message status changes (for sender to get delivery/read notifications)
+export function subscribeToMessageStatusChanges(
+  senderId: string,
+  onStatusChange: (messageId: string, status: Message['status']) => void
+): RealtimeChannel | null {
+  if (!isSupabaseConfigured() || !supabase) return null;
+
+  const channel = supabase
+    .channel(`message_status:${senderId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${senderId}`,
+      },
+      (payload) => {
+        const newData = payload.new as DbMessage;
+        if (newData.status) {
+          onStatusChange(newData.id, newData.status as Message['status']);
+        }
+      }
+    )
+    .subscribe();
+
+  return channel;
 }
 
 // Subscribe to new messages for a user (real-time)

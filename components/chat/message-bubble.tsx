@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
 import { formatTime } from '@/lib/format';
-import { Check, CheckCheck, Timer } from 'lucide-react';
+import { Clock, Timer } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -11,6 +11,53 @@ interface MessageBubbleProps {
   showTimestamp?: boolean;
   searchQuery?: string;
 }
+
+// Custom SVG components for WhatsApp-style ticks
+const SingleTick = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 16 11" 
+    className={className}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path 
+      d="M11.071 0.929L5.5 6.5L3.429 4.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+);
+
+const DoubleTick = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 20 11" 
+    className={className}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* First tick (back) */}
+    <path 
+      d="M11.071 0.929L5.5 6.5L4.429 5.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+    {/* Second tick (front) */}
+    <path 
+      d="M15.071 0.929L9.5 6.5L7.429 4.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+);
 
 // Helper function to highlight search matches
 function highlightText(text: string, query: string, isOwn: boolean) {
@@ -44,14 +91,33 @@ export function MessageBubble({ message, isOwn, showTimestamp = true, searchQuer
     
     switch (message.status) {
       case 'read':
-        return <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/80" />;
-      case 'delivered':
-        return <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/60" />;
-      case 'sent':
-        return <Check className="h-3.5 w-3.5 text-primary-foreground/60" />;
-      case 'sending':
+        // Double tick - bright cyan/teal color for read (distinct from green background)
         return (
-          <div className="h-3.5 w-3.5 rounded-full border-2 border-primary-foreground/40 border-t-transparent animate-spin" />
+          <DoubleTick 
+            className="w-[18px] h-[11px]" 
+            style={{ color: 'var(--tick-read)' } as React.CSSProperties}
+          />
+        );
+      case 'delivered':
+        // Double tick - white color for delivered (recipient online but hasn't read)
+        return (
+          <DoubleTick 
+            className="w-[18px] h-[11px]" 
+            style={{ color: 'var(--tick-delivered)' } as React.CSSProperties}
+          />
+        );
+      case 'sent':
+        // Single tick - white color for sent (recipient offline)
+        return (
+          <SingleTick 
+            className="w-[14px] h-[11px]" 
+            style={{ color: 'var(--tick-sent)' } as React.CSSProperties}
+          />
+        );
+      case 'sending':
+        // Clock icon for sending
+        return (
+          <Clock className="h-3 w-3 text-primary-foreground/50" />
         );
       default:
         return null;

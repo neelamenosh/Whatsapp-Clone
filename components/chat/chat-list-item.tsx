@@ -22,8 +22,58 @@ import {
   Info,
   Download,
   Trash2,
-  XCircle
+  XCircle,
+  Clock
 } from 'lucide-react';
+
+// Custom SVG components for WhatsApp-style ticks
+const SingleTick = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+  <svg 
+    viewBox="0 0 16 11" 
+    className={className}
+    style={style}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path 
+      d="M11.071 0.929L5.5 6.5L3.429 4.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+);
+
+const DoubleTick = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+  <svg 
+    viewBox="0 0 20 11" 
+    className={className}
+    style={style}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* First tick (back) */}
+    <path 
+      d="M11.071 0.929L5.5 6.5L4.429 5.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+    {/* Second tick (front) */}
+    <path 
+      d="M15.071 0.929L9.5 6.5L7.429 4.429" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+);
 
 interface ChatListItemProps {
   chat: Chat;
@@ -107,13 +157,32 @@ export function ChatListItem({ chat, isSelected, onClick, onChatUpdate, onChatDe
     
     switch (chat.lastMessage.status) {
       case 'read':
-        return settings.privacy.readReceipts
-          ? <CheckCheck className="h-4 w-4 text-primary" />
-          : <CheckCheck className="h-4 w-4 text-muted-foreground" />;
+        // Double tick - cyan/teal for read
+        return (
+          <DoubleTick 
+            className="w-4 h-[11px] flex-shrink-0" 
+            style={{ color: 'var(--tick-read)' }}
+          />
+        );
       case 'delivered':
-        return <CheckCheck className="h-4 w-4 text-muted-foreground" />;
+        // Double tick - muted color for delivered
+        return (
+          <DoubleTick 
+            className="w-4 h-[11px] flex-shrink-0 text-muted-foreground" 
+          />
+        );
       case 'sent':
-        return <Check className="h-4 w-4 text-muted-foreground" />;
+        // Single tick - muted color for sent
+        return (
+          <SingleTick 
+            className="w-3 h-[11px] flex-shrink-0 text-muted-foreground" 
+          />
+        );
+      case 'sending':
+        // Clock icon for sending
+        return (
+          <Clock className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/60" />
+        );
       default:
         return null;
     }

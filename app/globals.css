@@ -36,6 +36,11 @@
   --online-indicator: oklch(0.6 0.18 145);
   --typing-indicator: oklch(0.5 0.12 145);
   
+  /* Message tick colors - WhatsApp style */
+  --tick-sent: oklch(1 0 0 / 0.85);           /* White tick for sent */
+  --tick-delivered: oklch(1 0 0 / 0.85);       /* White ticks for delivered */
+  --tick-read: oklch(0.75 0.18 180);           /* Bright cyan/teal for read - distinct from message bg */
+  
   /* Gradient backgrounds - Subtle green-white */
   --gradient-start: oklch(0.98 0.012 145);
   --gradient-mid: oklch(0.99 0.005 145);
@@ -88,6 +93,11 @@
   --message-received: oklch(0.2 0.015 145 / 0.75);
   --online-indicator: oklch(0.55 0.16 145);
   --typing-indicator: oklch(0.5 0.1 145);
+  
+  /* Message tick colors - WhatsApp style (dark mode) */
+  --tick-sent: oklch(0.9 0 0 / 0.8);           /* White tick for sent */
+  --tick-delivered: oklch(0.9 0 0 / 0.8);       /* White ticks for delivered */
+  --tick-read: oklch(0.7 0.2 180);             /* Bright cyan/teal for read */
   
   /* Gradient backgrounds - dark mode deep blacks with green */
   --gradient-start: oklch(0.14 0.02 145);
@@ -187,6 +197,11 @@
   --color-message-received: var(--message-received);
   --color-online: var(--online-indicator);
   --color-typing: var(--typing-indicator);
+  
+  /* Tick colors */
+  --color-tick-sent: var(--tick-sent);
+  --color-tick-delivered: var(--tick-delivered);
+  --color-tick-read: var(--tick-read);
 }
 
 @layer base {
