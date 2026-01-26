@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import type { TabType } from '@/lib/types';
-import { MessageSquare, Circle, Phone, Users } from 'lucide-react';
+import { MessageSquare, Circle, Phone, Users, Settings } from 'lucide-react';
 
 interface TabBarProps {
   activeTab: TabType;
@@ -13,9 +13,10 @@ interface TabBarProps {
 
 export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 0 }: TabBarProps) {
   const tabs: { id: TabType; label: string; icon: typeof MessageSquare; badge?: number }[] = [
-    { id: 'chats', label: 'Chats', icon: MessageSquare, badge: unreadChats },
-    { id: 'status', label: 'Status', icon: Circle },
+    { id: 'contacts', label: 'Contacts', icon: Users },
     { id: 'calls', label: 'Calls', icon: Phone, badge: missedCalls },
+    { id: 'chats', label: 'Chats', icon: MessageSquare, badge: unreadChats },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -37,80 +38,76 @@ export function TabBar({ activeTab, onTabChange, unreadChats = 0, missedCalls = 
         'safe-area-bottom'
       )}
     >
-      <div className="flex items-center justify-around gap-1">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
 
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'relative flex flex-col items-center gap-0.5 px-5 py-2 rounded-2xl',
-                // Smooth transitions
-                'transition-all duration-[280ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]',
-                // Color states
-                isActive 
-                  ? 'text-[#2AABEE]' 
-                  : 'text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.7)]',
-                // Hover scale
-                'hover:scale-[1.08] active:scale-[1.02]'
-              )}
-              aria-label={tab.label}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              {/* Active glow background */}
-              {isActive && (
-                <div 
-                  className={cn(
-                    'absolute inset-0 rounded-2xl',
-                    'bg-[rgba(42,171,238,0.12)]',
-                    'shadow-[0_0_20px_rgba(42,171,238,0.25)]',
-                    'animate-in fade-in-0 zoom-in-95 duration-300'
-                  )} 
-                />
-              )}
-
-              <div className="relative z-10">
-                <Icon 
-                  className={cn(
-                    'h-6 w-6',
-                    'transition-all duration-[280ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]',
-                    // Active state: scale emphasis + glow
-                    isActive && 'scale-110 drop-shadow-[0_0_8px_rgba(42,171,238,0.5)]'
-                  )} 
-                  fill={isActive ? 'currentColor' : 'none'}
-                  strokeWidth={isActive ? 1.5 : 2}
-                />
-
-                {/* Badge */}
-                {tab.badge && tab.badge > 0 && (
-                  <div className={cn(
-                    'absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1',
-                    'rounded-full bg-[#2AABEE] text-white',
-                    'flex items-center justify-center',
-                    'text-[10px] font-semibold',
-                    'shadow-[0_0_12px_rgba(42,171,238,0.6)]',
-                    'border border-[rgba(255,255,255,0.15)]'
-                  )}>
-                    {tab.badge > 99 ? '99+' : tab.badge}
-                  </div>
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                className={cn(
+                  'relative flex flex-col items-center gap-1.5 px-4 py-2 rounded-2xl',
+                  // Smooth transitions
+                  'transition-all duration-300',
+                  // Color states
+                  isActive 
+                    ? 'text-white' 
+                    : 'text-[rgba(255,255,255,0.4)] hover:text-[rgba(255,255,255,0.6)]',
+                  'active:scale-95'
                 )}
-              </div>
+                aria-label={tab.label}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <div className="relative">
+                  {/* Active circular background */}
+                  {isActive && (
+                    <div 
+                      className={cn(
+                        'absolute inset-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full',
+                        'bg-[#2AABEE]',
+                        'shadow-[0_0_15px_rgba(42,171,238,0.5)]',
+                        'animate-in fade-in-0 zoom-in-75 duration-300'
+                      )} 
+                    />
+                  )}
 
-              <span className={cn(
-                'text-[11px] font-medium relative z-10',
-                'transition-all duration-[280ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]',
-                isActive && 'font-semibold'
-              )}>
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                  <div className="relative z-10 flex items-center justify-center w-10 h-10">
+                    <Icon 
+                      className={cn(
+                        'h-6 w-6',
+                        'transition-all duration-300',
+                        isActive && 'scale-110'
+                      )} 
+                      strokeWidth={isActive ? 2 : 2}
+                    />
+
+                    {/* Badge */}
+                    {tab.badge && tab.badge > 0 && (
+                      <div className={cn(
+                        'absolute top-0 -right-1 min-w-[18px] h-[18px] px-1',
+                        'rounded-full bg-[#FF3B30] text-white',
+                        'flex items-center justify-center',
+                        'text-[10px] font-bold',
+                        'border-2 border-[rgba(28,28,30,0.8)]'
+                      )}>
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <span className={cn(
+                  'text-[10px] font-medium relative z-10',
+                  'transition-opacity duration-300',
+                  isActive ? 'opacity-100' : 'opacity-60'
+                )}>
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
     </nav>
   );
 }

@@ -16,6 +16,7 @@ import { ChatList } from './chat/chat-list';
 import { ConversationView } from './chat/conversation-view';
 import { StatusList } from './status/status-list';
 import { CallsList } from './calls/calls-list';
+import { ContactsList } from './chat/contacts-list';
 import { SettingsModal } from './settings/settings-modal';
 
 export function AppShell() {
@@ -442,38 +443,57 @@ export function AppShell() {
     });
   }, [selectedChatId]);
 
-  const renderContent = () => {
-    // If a chat is selected, show the conversation view
-    if (selectedChat && activeTab === 'chats') {
-      return (
-        <ConversationView 
-          chat={selectedChat} 
-          onBack={handleBackFromChat} 
-          onMessageSent={handleMessageSent}
-        />
-      );
-    }
-
-    // Otherwise show the appropriate tab content
-    switch (activeTab) {
-      case 'chats':
+    const renderContent = () => {
+      // If a chat is selected, show the conversation view
+      if (selectedChat && activeTab === 'chats') {
         return (
-          <ChatList
-            selectedChatId={selectedChatId}
-            onSelectChat={handleSelectChat}
-            onOpenSettings={handleOpenSettings}
-            chats={chats}
-            onChatsChange={handleChatsChange}
+          <ConversationView 
+            chat={selectedChat} 
+            onBack={handleBackFromChat} 
+            onMessageSent={handleMessageSent}
           />
         );
-      case 'status':
-        return <StatusList />;
-      case 'calls':
-        return <CallsList />;
-      default:
-        return null;
-    }
-  };
+      }
+  
+      // Otherwise show the appropriate tab content
+      switch (activeTab) {
+        case 'contacts':
+          return (
+            <ContactsList 
+              onSelectUser={async (userId) => {
+                const chatId = getConsistentChatId(getCurrentUser()?.id!, userId);
+                handleSelectChat(chatId);
+                setActiveTab('chats');
+              }} 
+            />
+          );
+        case 'chats':
+          return (
+            <ChatList
+              selectedChatId={selectedChatId}
+              onSelectChat={handleSelectChat}
+              onOpenSettings={handleOpenSettings}
+              chats={chats}
+              onChatsChange={handleChatsChange}
+            />
+          );
+        case 'calls':
+          return <CallsList />;
+        case 'settings':
+          // We trigger the modal and stay on current view or switch to a placeholder
+          return (
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <SettingsModal open={activeTab === 'settings'} onOpenChange={(open) => {
+                  if (!open) setActiveTab('chats');
+                }} />
+              </div>
+            </div>
+          );
+        default:
+          return null;
+      }
+    };
 
   // Show loading state while checking auth
   if (isLoading) {
