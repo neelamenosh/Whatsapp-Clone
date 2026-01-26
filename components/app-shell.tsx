@@ -7,7 +7,7 @@ import type { TabType, Chat } from '@/lib/types';
 import { calls, getChatById, setCurrentUserData } from '@/lib/mock-data';
 import { getCurrentUser, isDatabaseConfigured } from '@/lib/auth-store';
 import { getUserChats, saveUserChats } from '@/lib/chat-store';
-import { getLiveChatService } from '@/lib/live-chat';
+import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { TabBar } from './navigation/tab-bar';
 import { ChatList } from './chat/chat-list';
 import { ConversationView } from './chat/conversation-view';
@@ -48,10 +48,23 @@ export function AppShell() {
     if (isLoading) return;
     
     const liveChatService = getLiveChatService();
+    const currentUser = getCurrentUser();
     
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       setChats((prev) => {
-        const chatIndex = prev.findIndex(c => c.id === chatId);
+        // Find chat by ID or by matching the consistent chat ID with participants
+        let chatIndex = prev.findIndex(c => c.id === chatId);
+        
+        // If not found directly, check if any chat has a participant that matches
+        if (chatIndex === -1 && currentUser) {
+          chatIndex = prev.findIndex(c => {
+            if (c.type !== 'individual') return false;
+            const participant = c.participants[0];
+            const expectedChatId = getConsistentChatId(currentUser.id, participant.id);
+            return expectedChatId === chatId;
+          });
+        }
+        
         if (chatIndex === -1) return prev;
         
         const updated = [...prev];
@@ -59,7 +72,7 @@ export function AppShell() {
           ...updated[chatIndex],
           lastMessage: message,
           updatedAt: new Date(),
-          unreadCount: selectedChatId === chatId 
+          unreadCount: selectedChatId === chatId || selectedChatId === updated[chatIndex].id
             ? updated[chatIndex].unreadCount 
             : updated[chatIndex].unreadCount + 1,
         };

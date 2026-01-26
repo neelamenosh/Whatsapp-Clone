@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { X, Mail, Search, Loader2, UserPlus, AlertCircle } from 'lucide-react';
+import { X, Mail, Search, Loader2, UserPlus, AlertCircle, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { findUserByEmail, getCurrentUser } from '@/lib/auth-store';
+import { findUserByEmail, getCurrentUser, getOtherUsers } from '@/lib/auth-store';
 import type { User, Chat } from '@/lib/types';
+import { getConsistentChatId } from '@/lib/live-chat';
 
 interface NewChatModalProps {
   open: boolean;
@@ -19,6 +20,9 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
   const [foundUser, setFoundUser] = React.useState<User | null>(null);
   const [error, setError] = React.useState('');
   const [hasSearched, setHasSearched] = React.useState(false);
+  const [registeredUsers, setRegisteredUsers] = React.useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = React.useState(false);
+  const [showUsersList, setShowUsersList] = React.useState(true);
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -28,6 +32,17 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onOpenChange]);
 
+  // Load registered users when modal opens
+  React.useEffect(() => {
+    if (open) {
+      setIsLoadingUsers(true);
+      getOtherUsers().then((users) => {
+        setRegisteredUsers(users);
+        setIsLoadingUsers(false);
+      });
+    }
+  }, [open]);
+
   // Reset state when modal opens/closes
   React.useEffect(() => {
     if (!open) {
@@ -35,6 +50,7 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
       setFoundUser(null);
       setError('');
       setHasSearched(false);
+      setShowUsersList(true);
     }
   }, [open]);
 
@@ -83,24 +99,33 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
 
   const handleStartChat = () => {
     if (!foundUser) return;
+    startChatWithUser(foundUser);
+  };
+
+  const startChatWithUser = (user: User) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    // Generate consistent chat ID
+    const consistentChatId = getConsistentChatId(currentUser.id, user.id);
 
     // Check if chat already exists with this user
     const existingChat = existingChats.find(
-      chat => chat.type === 'individual' && chat.participants.some(p => p.id === foundUser.id)
+      chat => chat.type === 'individual' && chat.participants.some(p => p.id === user.id)
     );
 
     if (existingChat) {
-      // If chat already exists, just open it
-      onStartChat(existingChat);
+      // If chat already exists, just open it (update to use consistent ID)
+      onStartChat({ ...existingChat, id: consistentChatId });
       onOpenChange(false);
       return;
     }
 
-    // Create a new chat
+    // Create a new chat with consistent ID
     const newChat: Chat = {
-      id: `chat-${Date.now()}`,
+      id: consistentChatId,
       type: 'individual',
-      participants: [foundUser],
+      participants: [user],
       unreadCount: 0,
       isPinned: false,
       isMuted: false,
@@ -273,6 +298,67 @@ export function NewChatModal({ open, onOpenChange, onStartChat, existingChats }:
                   <AlertCircle className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <p className="text-muted-foreground">No user found with this email</p>
+              </div>
+            )}
+
+            {/* Registered Users List */}
+            {!foundUser && !hasSearched && (
+              <div className="space-y-4">
+                <div className="h-px bg-border/50" />
+                
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-medium text-foreground">Registered Users</h3>
+                  <span className="text-xs text-muted-foreground">({registeredUsers.length})</span>
+                </div>
+
+                {isLoadingUsers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : registeredUsers.length === 0 ? (
+                  <div className="text-center py-6">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                      <Users className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No other users registered yet</p>
+                  </div>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-2 scrollbar-hide">
+                    {registeredUsers.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => startChatWithUser(user)}
+                        className={cn(
+                          "w-full p-3 rounded-xl bg-white/60 border border-border/30",
+                          "hover:bg-primary/5 hover:border-primary/30 transition-all",
+                          "flex items-center gap-3 text-left"
+                        )}
+                      >
+                        <div className="relative shrink-0">
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            className="w-11 h-11 rounded-full object-cover"
+                          />
+                          <span 
+                            className={cn(
+                              "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white",
+                              user.status === 'online' ? "bg-green-500" :
+                              user.status === 'away' ? "bg-yellow-500" : "bg-gray-400"
+                            )}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-foreground text-sm">{user.name}</h4>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
+                        <UserPlus className="w-4 h-4 text-primary shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

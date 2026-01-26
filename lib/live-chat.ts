@@ -1,6 +1,11 @@
 import type { Chat, Message, User } from './types';
 import { getCurrentUser } from './user-store';
 
+// Generate consistent chat ID between two users (sorted to ensure both see the same ID)
+export function getConsistentChatId(userId1: string, userId2: string): string {
+  return [userId1, userId2].sort().join('_');
+}
+
 type MessageListener = (chatId: string, message: Message) => void;
 type TypingListener = (chatId: string, userId: string, isTyping: boolean) => void;
 type OnlineListener = (userId: string, isOnline: boolean) => void;
@@ -114,12 +119,18 @@ class LiveChatService {
 
     switch (data.type) {
       case 'message':
-        if (data.chatId && data.message) {
+        if (data.message) {
           // Don't notify for our own messages
           if (data.message.senderId === currentUser.id) return;
           
+          // Use the consistent chat ID or the provided chatId
+          const consistentChatId = data.chatId || getConsistentChatId(currentUser.id, data.message.senderId);
+          
+          // Store message for this user's view
+          this.storeMessageForUser(consistentChatId, data.message);
+          
           this.messageListeners.forEach(listener => {
-            listener(data.chatId!, data.message!);
+            listener(consistentChatId, data.message!);
           });
         }
         break;
@@ -143,9 +154,13 @@ class LiveChatService {
       case 'new_chat':
         // Check if this chat is for the current user
         if (data.recipientId === currentUser.id && data.chat && data.sender) {
+          // Generate consistent chat ID for the recipient
+          const consistentChatId = getConsistentChatId(currentUser.id, data.sender.id);
+          
           // Create a chat object for the recipient with the sender as participant
           const chatForRecipient: Chat = {
             ...data.chat,
+            id: consistentChatId, // Use consistent chat ID
             participants: [data.sender],
           };
           this.newChatListeners.forEach(listener => {
@@ -182,9 +197,8 @@ class LiveChatService {
     }
   }
 
-  // Public methods
-  sendMessage(chatId: string, message: Message) {
-    // Store message in localStorage for the chat
+  // Store message for a user
+  private storeMessageForUser(chatId: string, message: Message) {
     const messagesKey = `whatsapp_messages_${chatId}`;
     try {
       const stored = localStorage.getItem(messagesKey);
@@ -198,12 +212,30 @@ class LiveChatService {
     } catch {
       // Ignore errors
     }
+  }
 
-    // Broadcast to other tabs/windows
+  // Public methods
+  sendMessage(chatId: string, message: Message, recipientId?: string) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    
+    // Determine the recipient ID
+    const targetRecipientId = recipientId || (message.senderId === currentUser.id ? 
+      chatId.replace(currentUser.id, '').replace('_', '').replace('chat-', '') : currentUser.id);
+    
+    // Use consistent chat ID for storage
+    const consistentChatId = targetRecipientId ? 
+      getConsistentChatId(currentUser.id, targetRecipientId) : chatId;
+    
+    // Store message locally
+    this.storeMessageForUser(consistentChatId, message);
+
+    // Broadcast to other tabs/windows with recipient info
     this.broadcast({
       type: 'message',
-      chatId,
+      chatId: consistentChatId,
       message,
+      recipientId: targetRecipientId,
     });
   }
 

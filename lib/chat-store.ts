@@ -1,6 +1,11 @@
 import type { Chat, Message, User } from './types';
 import { getCurrentUser } from './user-store';
 
+// Helper function to generate consistent chat ID between two users
+function getConsistentChatId(userId1: string, userId2: string): string {
+  return [userId1, userId2].sort().join('_');
+}
+
 // Keys for localStorage
 const CHATS_KEY = 'whatsapp_chats';
 const MESSAGES_KEY = 'whatsapp_messages';
@@ -96,9 +101,10 @@ export function getOrCreateChat(otherUser: User): Chat {
     return existingChat;
   }
   
-  // Create new chat
+  // Create new chat with consistent ID
+  const consistentChatId = getConsistentChatId(currentUser.id, otherUser.id);
   const newChat: Chat = {
-    id: `chat-${currentUser.id}-${otherUser.id}-${Date.now()}`,
+    id: consistentChatId,
     type: 'individual',
     participants: [otherUser],
     unreadCount: 0,
@@ -185,7 +191,6 @@ export function markChatAsRead(chatId: string): void {
 
 // Get chat ID for two users (deterministic)
 export function getChatIdForUsers(userId1: string, userId2: string): string {
-  // Sort IDs to ensure consistent chat ID regardless of who initiates
-  const sorted = [userId1, userId2].sort();
-  return `chat-${sorted[0]}-${sorted[1]}`;
+  // Use consistent format matching getConsistentChatId
+  return getConsistentChatId(userId1, userId2);
 }

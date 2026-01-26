@@ -8,7 +8,7 @@ import { getCurrentUser } from '@/lib/auth-store';
 import { formatLastSeen } from '@/lib/format';
 import { useSettings } from '@/components/settings-provider';
 import { Virtuoso } from 'react-virtuoso';
-import { getLiveChatService } from '@/lib/live-chat';
+import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { 
@@ -42,23 +42,30 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
   const isGroup = chat.type === 'group';
   const displayName = isGroup ? 'Design Team' : participant.name;
   const isBlocked = !isGroup && settings.privacy.blockedUserIds.includes(participant.id);
+  
+  // Get consistent chat ID for message storage
+  const consistentChatId = !isGroup && loggedInUser 
+    ? getConsistentChatId(loggedInUser.id, participant.id) 
+    : chat.id;
 
   // Load messages from localStorage on mount
   useEffect(() => {
     const liveChatService = getLiveChatService();
-    const storedMessages = liveChatService.getMessages(chat.id);
+    // Use consistent chat ID for loading messages
+    const storedMessages = liveChatService.getMessages(consistentChatId);
     setMessages(storedMessages);
     
     // Check if participant is online
     setIsOnline(liveChatService.isUserOnline(participant.id));
-  }, [chat.id, participant.id]);
+  }, [consistentChatId, participant.id]);
 
   // Listen for incoming messages
   useEffect(() => {
     const liveChatService = getLiveChatService();
     
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
-      if (chatId !== chat.id) return;
+      // Check if this message is for the current conversation
+      if (chatId !== consistentChatId) return;
       
       setMessages((prev) => {
         // Check for duplicates
@@ -72,14 +79,14 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     return () => {
       unsubMessage();
     };
-  }, [chat.id]);
+  }, [consistentChatId]);
 
   // Listen for typing indicator
   useEffect(() => {
     const liveChatService = getLiveChatService();
     
     const unsubTyping = liveChatService.onTyping((chatId, userId, typing) => {
-      if (chatId !== chat.id) return;
+      if (chatId !== consistentChatId) return;
       if (userId === participant.id) {
         setIsTyping(typing);
       }
@@ -88,7 +95,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     return () => {
       unsubTyping();
     };
-  }, [chat.id, participant.id]);
+  }, [consistentChatId, participant.id]);
 
   // Listen for online status changes
   useEffect(() => {
@@ -116,7 +123,7 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     setInputValue(e.target.value);
     
     const liveChatService = getLiveChatService();
-    liveChatService.sendTyping(chat.id, true);
+    liveChatService.sendTyping(consistentChatId, true);
     
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -125,9 +132,9 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     
     // Stop typing indicator after 2 seconds of no input
     typingTimeoutRef.current = setTimeout(() => {
-      liveChatService.sendTyping(chat.id, false);
+      liveChatService.sendTyping(consistentChatId, false);
     }, 2000);
-  }, [chat.id]);
+  }, [consistentChatId]);
 
   const listData = messages;
 
@@ -161,15 +168,15 @@ export function ConversationView({ chat, onBack }: ConversationViewProps) {
     
     // Stop typing indicator
     const liveChatService = getLiveChatService();
-    liveChatService.sendTyping(chat.id, false);
+    liveChatService.sendTyping(consistentChatId, false);
     
-    // Send via live chat service (broadcasts to other tabs/windows)
-    liveChatService.sendMessage(chat.id, newMessage);
+    // Send via live chat service with recipient ID for proper routing
+    liveChatService.sendMessage(consistentChatId, newMessage, participant.id);
 
     // If first message, notify recipient about new chat
     if (isFirstMessage && !isGroup) {
       liveChatService.notifyNewChat(
-        { ...chat, lastMessage: newMessage },
+        { ...chat, id: consistentChatId, lastMessage: newMessage },
         participant.id
       );
     }
