@@ -489,7 +489,8 @@ export function AppShell() {
       {/* Main content area */}
       <main className={cn(
         'flex-1 overflow-hidden relative',
-        selectedChat ? '' : ''
+        // Add bottom padding for floating dock when visible
+        !selectedChat && 'pb-24'
       )}>
         {renderContent()}
       </main>
