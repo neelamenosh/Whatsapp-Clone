@@ -67,7 +67,8 @@ export default function LoginPage() {
         return;
       }
       
-      router.push("/");
+      // Use replace to prevent going back to login page
+      router.replace("/");
     } catch (error) {
       setErrors({ general: "Invalid credentials. Please try again." });
     } finally {

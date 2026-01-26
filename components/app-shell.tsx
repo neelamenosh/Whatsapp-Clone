@@ -36,6 +36,30 @@ export function AppShell() {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
 
+  // Handle browser back button for in-app navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // If we're in a chat and user presses back, go to chat list instead of leaving the app
+      if (event.state?.inChat) {
+        // User navigated forward to a chat, do nothing special
+      } else if (selectedChatIdRef.current) {
+        // User pressed back while in a chat - close the chat
+        setSelectedChatId(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Replace current history state on mount to mark the base state
+    if (!window.history.state?.appBase) {
+      window.history.replaceState({ appBase: true }, '');
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   // Check if user is logged in and load chats
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -363,6 +387,9 @@ export function AppShell() {
   const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
     
+    // Push state to browser history so back button returns to chat list
+    window.history.pushState({ inChat: true, chatId }, '');
+    
     // Mark chat as read
     setChats((prev) => {
       const chatIndex = prev.findIndex(c => c.id === chatId);
@@ -379,6 +406,11 @@ export function AppShell() {
 
   const handleBackFromChat = () => {
     setSelectedChatId(null);
+    
+    // Go back in history if we pushed a state when entering the chat
+    if (window.history.state?.inChat) {
+      window.history.back();
+    }
   };
 
   const handleOpenSettings = () => {
