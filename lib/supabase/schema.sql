@@ -64,8 +64,9 @@ CREATE POLICY "Users can insert messages" ON messages
 CREATE POLICY "Users can update their own messages" ON messages
   FOR UPDATE USING (true);
 
--- Enable Realtime for messages table
+-- Enable Realtime for messages and users tables
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE users;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
