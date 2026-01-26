@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import type { TabType, Chat } from '@/lib/types';
+import type { TabType, Chat, User } from '@/lib/types';
 import { calls, getChatById, setCurrentUserData } from '@/lib/mock-data';
-import { getCurrentUser, isDatabaseConfigured, initPresenceTracking } from '@/lib/auth-store';
+import { getCurrentUser, isDatabaseConfigured, initPresenceTracking, findUserById } from '@/lib/auth-store';
 import { getUserChats, saveUserChats } from '@/lib/chat-store';
 import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseMessages from '@/lib/supabase/messages';
+import * as supabaseUsers from '@/lib/supabase/users';
 import { TabBar } from './navigation/tab-bar';
 import { ChatList } from './chat/chat-list';
 import { ConversationView } from './chat/conversation-view';
@@ -60,22 +61,38 @@ export function AppShell() {
     const currentUser = getCurrentUser();
     
     // Helper function to update chat list with new message
-    const handleNewMessage = (chatId: string, message: any, senderId: string) => {
+    const handleNewMessage = async (chatId: string, message: any, senderId: string) => {
+      const currentUserNow = getCurrentUser();
+      if (!currentUserNow) return;
+      
       setChats((prev) => {
         // Find chat by ID or by matching the consistent chat ID with participants
         let chatIndex = prev.findIndex(c => c.id === chatId);
         
         // If not found directly, check if any chat has a participant that matches
-        if (chatIndex === -1 && currentUser) {
+        if (chatIndex === -1) {
           chatIndex = prev.findIndex(c => {
             if (c.type !== 'individual') return false;
             const participant = c.participants[0];
-            const expectedChatId = getConsistentChatId(currentUser.id, participant.id);
+            const expectedChatId = getConsistentChatId(currentUserNow.id, participant.id);
             return expectedChatId === chatId;
           });
         }
         
-        if (chatIndex === -1) return prev;
+        // Also check by sender ID
+        if (chatIndex === -1) {
+          chatIndex = prev.findIndex(c => {
+            if (c.type !== 'individual') return false;
+            const participant = c.participants[0];
+            return participant.id === senderId;
+          });
+        }
+        
+        if (chatIndex === -1) {
+          // Chat doesn't exist yet - we need to create a new chat
+          // This will be handled asynchronously below
+          return prev;
+        }
         
         const updated = [...prev];
         updated[chatIndex] = {
@@ -84,7 +101,7 @@ export function AppShell() {
           updatedAt: new Date(),
           unreadCount: selectedChatId === chatId || selectedChatId === updated[chatIndex].id
             ? updated[chatIndex].unreadCount 
-            : (senderId !== currentUser?.id ? updated[chatIndex].unreadCount + 1 : updated[chatIndex].unreadCount),
+            : (senderId !== currentUserNow?.id ? updated[chatIndex].unreadCount + 1 : updated[chatIndex].unreadCount),
         };
         
         // Sort by updatedAt
@@ -97,9 +114,77 @@ export function AppShell() {
       });
     };
     
+    // Helper to create a new chat when message comes from unknown user
+    const createChatForNewMessage = async (chatId: string, message: any, senderId: string) => {
+      const currentUserNow = getCurrentUser();
+      if (!currentUserNow || senderId === currentUserNow.id) return;
+      
+      // Check if chat already exists
+      const existingChat = chats.find(c => {
+        if (c.id === chatId) return true;
+        if (c.type !== 'individual') return false;
+        const participant = c.participants[0];
+        return participant.id === senderId || getConsistentChatId(currentUserNow.id, participant.id) === chatId;
+      });
+      
+      if (existingChat) return;
+      
+      // Fetch sender's info from Supabase or local
+      let senderUser: User | null = null;
+      
+      if (isSupabaseConfigured()) {
+        const supaUser = await supabaseUsers.getUserById(senderId);
+        if (supaUser) {
+          senderUser = {
+            id: supaUser.id,
+            name: supaUser.displayName,
+            email: supaUser.email,
+            avatar: supaUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+            status: supaUser.status || 'online',
+            about: supaUser.bio || 'Available',
+            phone: supaUser.phone,
+          };
+        }
+      }
+      
+      if (!senderUser) {
+        // Try local lookup
+        senderUser = await findUserById(senderId);
+      }
+      
+      if (!senderUser) {
+        console.log('Could not find sender user info:', senderId);
+        return;
+      }
+      
+      // Create new chat
+      const newChat: Chat = {
+        id: chatId,
+        type: 'individual',
+        participants: [senderUser],
+        lastMessage: message,
+        unreadCount: 1,
+        isPinned: false,
+        isMuted: false,
+        updatedAt: new Date(),
+      };
+      
+      setChats((prev) => {
+        // Double check it doesn't exist
+        if (prev.some(c => c.id === chatId || prev.some(c => c.participants[0]?.id === senderId))) {
+          return prev;
+        }
+        const updated = [newChat, ...prev];
+        saveUserChats(updated);
+        return updated;
+      });
+    };
+    
     // Subscribe to localStorage/BroadcastChannel updates
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       handleNewMessage(chatId, message, message.senderId);
+      // Also try to create chat if it doesn't exist
+      createChatForNewMessage(chatId, message, message.senderId);
     });
 
     // Subscribe to Supabase real-time messages if configured
@@ -115,6 +200,8 @@ export function AppShell() {
           type: msg.type,
         };
         handleNewMessage(msg.chatId, formattedMessage, msg.senderId);
+        // Also try to create chat if it doesn't exist
+        createChatForNewMessage(msg.chatId, formattedMessage, msg.senderId);
       });
       
       if (channel) {
