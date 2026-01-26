@@ -987,7 +987,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                     <div className="flex items-center gap-2 glass-card px-4 py-2 text-xs text-muted-foreground bg-primary/5 border-primary/20">
                       <ShieldCheck className="h-4 w-4 text-primary" />
                       <span>
-                        Messages are end-to-end encrypted. No one outside of this chat can read them.
+                        Messages are end-to-end encrypted
                       </span>
                     </div>
                   </div>
