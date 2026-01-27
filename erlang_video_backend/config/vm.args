@@ -1,0 +1,38 @@
+## Erlang VM Configuration
+
+## Name of the node
+-name video_backend@127.0.0.1
+
+## Cookie for distributed Erlang
+-setcookie video_backend_secret_cookie
+
+## Enable kernel poll for scalability
++K true
+
+## Async thread pool size (for I/O operations)
++A 128
+
+## Maximum number of ports (sockets)
++Q 65536
+
+## Maximum number of processes
++P 1000000
+
+## Maximum atom table size
++t 10485760
+
+## Enable SMP
+-smp enable
+
+## Scheduler binding for better performance
++sbt db
+
+## Memory allocator tuning
++MBas aobf
++MBcs 512
+
+## Heartbeat for crash detection
+-heart
+
+## Start with embedded mode for production
+## -mode embedded

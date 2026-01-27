@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 import {
     getWebRTCService,
     type CallState,
-    type CallInfo
+    type CallInfo,
+    type ConnectionQuality
 } from '@/lib/webrtc';
 import {
     Mic,
@@ -17,6 +18,8 @@ import {
     Maximize2,
     Minimize2,
     User as UserIcon,
+    Wifi,
+    WifiOff,
 } from 'lucide-react';
 
 interface VideoCallModalProps {
@@ -43,6 +46,7 @@ export function VideoCallModal({
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>({ state: 'good' });
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -68,6 +72,9 @@ export function VideoCallModal({
             },
             (stream: MediaStream | null) => {
                 setRemoteStream(stream);
+            },
+            (quality: ConnectionQuality) => {
+                setConnectionQuality(quality);
             }
         );
 
@@ -165,6 +172,8 @@ export function VideoCallModal({
                 return 'Ringing...';
             case 'connecting':
                 return 'Connecting...';
+            case 'reconnecting':
+                return 'Reconnecting...';
             case 'connected':
                 return formatDuration(callDuration);
             case 'failed':
@@ -173,6 +182,17 @@ export function VideoCallModal({
                 return 'Call ended';
             default:
                 return '';
+        }
+    };
+
+    // Get quality indicator color
+    const getQualityColor = (): string => {
+        switch (connectionQuality.state) {
+            case 'excellent': return 'text-green-400';
+            case 'good': return 'text-green-300';
+            case 'poor': return 'text-yellow-400';
+            case 'disconnected': return 'text-red-400';
+            default: return 'text-gray-400';
         }
     };
 
@@ -218,10 +238,28 @@ export function VideoCallModal({
 
                 {/* Status overlay */}
                 <div className="absolute top-4 left-0 right-0 flex justify-center">
-                    <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full">
+                    <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2">
+                        {/* Connection quality indicator */}
+                        {callState === 'connected' && (
+                            <Wifi className={cn("w-4 h-4", getQualityColor())} />
+                        )}
+                        {callState === 'reconnecting' && (
+                            <WifiOff className="w-4 h-4 text-yellow-400 animate-pulse" />
+                        )}
                         <p className="text-white text-sm font-medium">{getStatusText()}</p>
                     </div>
                 </div>
+
+                {/* Reconnecting overlay */}
+                {callState === 'reconnecting' && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <div className="bg-black/80 backdrop-blur-sm px-6 py-4 rounded-2xl flex flex-col items-center gap-3">
+                            <div className="w-10 h-10 border-3 border-white/20 border-t-white rounded-full animate-spin" />
+                            <p className="text-white text-sm">Reconnecting...</p>
+                            <p className="text-gray-400 text-xs">Poor connection detected</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Local video (picture-in-picture) */}
                 <div

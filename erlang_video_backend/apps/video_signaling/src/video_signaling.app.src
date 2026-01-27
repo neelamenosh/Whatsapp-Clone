@@ -1,0 +1,16 @@
+{application, video_signaling, [
+    {description, "Video Call Signaling Application"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {video_signaling_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        mnesia,
+        crypto
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, []}
+]}.

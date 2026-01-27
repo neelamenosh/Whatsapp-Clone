@@ -1,0 +1,20 @@
+{application, video_web, [
+    {description, "Video Call Web Server Application"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {video_web_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        cowboy,
+        jsx,
+        video_signaling
+    ]},
+    {env, [
+        {http_port, 8080},
+        {https_port, 8443}
+    ]},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, []}
+]}.
