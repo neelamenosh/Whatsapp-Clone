@@ -534,7 +534,12 @@ export class WebRTCService {
 
     // Handle incoming signaling messages
     private async handleSignalingMessage(message: SignalingMessage): Promise<void> {
-        console.log('[WebRTC] Received signaling:', message.type);
+        console.log('[WebRTC] handleSignalingMessage received:', message.type, {
+            hasPayload: !!message.payload,
+            hasPeerConnection: !!this.peerConnection,
+            pcState: this.peerConnection?.connectionState,
+            isInitiator: this.isInitiator
+        });
 
         try {
             switch (message.type) {

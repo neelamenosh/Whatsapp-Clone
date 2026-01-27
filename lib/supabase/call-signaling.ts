@@ -102,8 +102,11 @@ export function subscribeToCallSignaling(
     onMessage: (message: SignalingMessage) => void
 ): RealtimeChannel | null {
     if (!isSupabaseConfigured()) {
+        console.error('[CallSignaling] subscribeToCallSignaling: Supabase not configured');
         return null;
     }
+
+    console.log('[CallSignaling] subscribeToCallSignaling: Setting up channel for callId:', callId, 'userId:', userId);
 
     const channel = supabase!
         .channel(`call:${callId}`)
@@ -117,8 +120,18 @@ export function subscribeToCallSignaling(
             },
             (payload) => {
                 const row = payload.new as any;
-                // Only process messages intended for this user
+                console.log('[CallSignaling] subscribeToCallSignaling received INSERT:', {
+                    type: row.type,
+                    caller_id: row.caller_id,
+                    callee_id: row.callee_id,
+                    call_id: row.call_id,
+                    myUserId: userId,
+                    willProcess: row.callee_id === userId
+                });
+
+                // Only process messages intended for this user (where they are the recipient/callee)
                 if (row.callee_id === userId) {
+                    console.log('[CallSignaling] Processing message for this user');
                     onMessage({
                         id: row.id,
                         callerId: row.caller_id,
@@ -129,10 +142,14 @@ export function subscribeToCallSignaling(
                         callId: row.call_id,
                         createdAt: row.created_at,
                     });
+                } else {
+                    console.log('[CallSignaling] Skipping message - not for this user');
                 }
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[CallSignaling] subscribeToCallSignaling status:', status, 'for callId:', callId);
+        });
 
     return channel;
 }
