@@ -16,6 +16,10 @@ import {
     unsubscribeFromChannel,
     type SignalingMessage,
 } from './supabase/call-signaling';
+import {
+    createCallLog,
+    updateCallLogByCallId,
+} from './supabase/call-logs';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Multiple ICE servers for better connectivity
@@ -80,6 +84,10 @@ export class WebRTCService {
     private callerId: string = '';
     private calleeId: string = '';
     private currentCallType: 'video' | 'audio' = 'video';
+
+    // Call logging
+    private callLogId: string | null = null;
+    private callStartTime: Date | null = null;
 
     // Stability features
     private reconnectAttempts: number = 0;
@@ -454,6 +462,20 @@ export class WebRTCService {
                 callType
             );
 
+            // Create call log for outgoing call
+            this.callStartTime = new Date();
+            const { data: callLog } = await createCallLog(
+                userId,
+                targetUserId,
+                callType,
+                'outgoing',
+                this.currentCallId
+            );
+            if (callLog) {
+                this.callLogId = callLog.id;
+                console.log('[WebRTC] Call log created for outgoing call:', callLog.id);
+            }
+
             return this.currentCallId;
         } catch (error) {
             console.error('[WebRTC] Error initiating call:', error);
@@ -524,6 +546,20 @@ export class WebRTCService {
                 this.currentCallId,
                 answer
             );
+
+            // Create call log for incoming call
+            this.callStartTime = new Date();
+            const { data: callLog } = await createCallLog(
+                callInfo.callerId,
+                userId,
+                callInfo.callType,
+                'incoming',
+                this.currentCallId
+            );
+            if (callLog) {
+                this.callLogId = callLog.id;
+                console.log('[WebRTC] Call log created for incoming call:', callLog.id);
+            }
         } catch (error) {
             console.error('[WebRTC] Error answering call:', error);
             this.onCallStateChange?.('failed');
@@ -596,6 +632,15 @@ export class WebRTCService {
 
                 case 'end':
                 case 'reject':
+                    // Update call log when call is ended/rejected by other party
+                    if (this.currentCallId && this.callStartTime) {
+                        const duration = Math.floor((Date.now() - this.callStartTime.getTime()) / 1000);
+                        await updateCallLogByCallId(this.currentCallId, {
+                            status: 'completed',
+                            endedAt: new Date(),
+                            duration
+                        });
+                    }
                     this.onCallStateChange?.('ended');
                     this.cleanup();
                     break;
@@ -612,6 +657,15 @@ export class WebRTCService {
 
     // Reject an incoming call
     async rejectCall(userId: string, callInfo: CallInfo): Promise<void> {
+        // Create a call log for the missed/declined call
+        await createCallLog(
+            callInfo.callerId,
+            userId,
+            callInfo.callType,
+            'declined',
+            callInfo.callId
+        );
+
         await sendSignalingMessage(
             userId,
             callInfo.callerId,
@@ -622,6 +676,17 @@ export class WebRTCService {
 
     // End current call
     async endCall(): Promise<void> {
+        // Update call log with duration and completed status
+        if (this.currentCallId && this.callStartTime) {
+            const duration = Math.floor((Date.now() - this.callStartTime.getTime()) / 1000);
+            await updateCallLogByCallId(this.currentCallId, {
+                status: 'completed',
+                endedAt: new Date(),
+                duration
+            });
+            console.log('[WebRTC] Call log updated with duration:', duration, 'seconds');
+        }
+
         if (this.currentCallId) {
             const targetId = this.isInitiator ? this.calleeId : this.callerId;
             if (targetId) {
@@ -706,6 +771,8 @@ export class WebRTCService {
 
         // Reset state
         this.currentCallId = null;
+        this.callLogId = null;
+        this.callStartTime = null;
         this.resetState();
     }
 }

@@ -1,16 +1,125 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { calls } from '@/lib/mock-data';
 import { CallItem } from './call-item';
-import { Search, Phone, Video, Link2, MoreHorizontal } from 'lucide-react';
+import { Search, Phone, Video, Link2, MoreHorizontal, Loader2 } from 'lucide-react';
+import { getCallLogsForUser, subscribeToCallLogs, unsubscribeFromCallLogs, type CallLog } from '@/lib/supabase/call-logs';
+import { getCurrentUser, getAllRegisteredUsers } from '@/lib/auth-store';
+import type { Call, User } from '@/lib/types';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type FilterType = 'all' | 'missed';
 
 export function CallsList() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [subscriptionChannel, setSubscriptionChannel] = useState<RealtimeChannel | null>(null);
+
+  // Initialize current user and fetch all users
+  useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
+
+    const fetchUsers = async () => {
+      const users = await getAllRegisteredUsers();
+      setAllUsers(users);
+    };
+    fetchUsers();
+  }, []);
+
+  // Convert CallLog from database to Call type for UI
+  const callLogToCall = useCallback((log: CallLog, userId: string): Call | null => {
+    const isOutgoing = log.callerId === userId;
+    const otherUserId = isOutgoing ? log.calleeId : log.callerId;
+
+    // Find the other user's info
+    const otherUser = allUsers.find(u => u.id === otherUserId);
+
+    // Map database status to UI status
+    let uiStatus: Call['status'];
+    if (log.status === 'outgoing') {
+      uiStatus = 'outgoing';
+    } else if (log.status === 'incoming' || log.status === 'completed') {
+      uiStatus = isOutgoing ? 'outgoing' : 'incoming';
+    } else if (log.status === 'missed') {
+      uiStatus = 'missed';
+    } else if (log.status === 'declined') {
+      uiStatus = 'declined';
+    } else {
+      uiStatus = isOutgoing ? 'outgoing' : 'incoming';
+    }
+
+    const participant: User = otherUser || {
+      id: otherUserId,
+      name: 'Unknown',
+      avatar: '/placeholder.svg',
+      status: 'offline' as const,
+    };
+
+    return {
+      id: log.id,
+      participants: [participant],
+      type: log.callType === 'video' ? 'video' : 'voice',
+      status: uiStatus,
+      startedAt: log.startedAt,
+      endedAt: log.endedAt,
+      duration: log.duration,
+    };
+  }, [allUsers]);
+
+  // Fetch call logs when user is available
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const fetchCalls = async () => {
+      setLoading(true);
+
+      const { data, error } = await getCallLogsForUser(currentUser.id);
+      if (!error && data) {
+        const convertedCalls = data
+          .map(log => callLogToCall(log, currentUser.id))
+          .filter((call): call is Call => call !== null);
+        setCalls(convertedCalls);
+      }
+      setLoading(false);
+    };
+
+    fetchCalls();
+  }, [currentUser?.id, callLogToCall]);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = subscribeToCallLogs(
+      currentUser.id,
+      (newLog) => {
+        const newCall = callLogToCall(newLog, currentUser.id);
+        if (newCall) {
+          setCalls(prev => [newCall, ...prev.filter(c => c.id !== newCall.id)]);
+        }
+      },
+      (updatedLog) => {
+        const updatedCall = callLogToCall(updatedLog, currentUser.id);
+        if (updatedCall) {
+          setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+        }
+      }
+    );
+
+    setSubscriptionChannel(channel);
+
+    return () => {
+      if (channel) {
+        unsubscribeFromCallLogs(channel);
+      }
+    };
+  }, [currentUser?.id, callLogToCall]);
 
   const filteredCalls = calls.filter((call) => {
     const matchesFilter = filter === 'all' || call.status === 'missed';
@@ -116,8 +225,13 @@ export function CallsList() {
           Recent
         </p>
 
-        {/* Calls */}
-        {filteredCalls.length > 0 ? (
+        {/* Loading state */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            <p className="text-muted-foreground mt-4">Loading calls...</p>
+          </div>
+        ) : filteredCalls.length > 0 ? (
           filteredCalls.map((call) => (
             <CallItem key={call.id} call={call} />
           ))
