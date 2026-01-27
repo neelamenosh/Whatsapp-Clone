@@ -22,19 +22,28 @@ export async function sendSignalingMessage(
     callType: 'video' | 'audio' = 'video'
 ): Promise<{ error: Error | null }> {
     if (!isSupabaseConfigured()) {
+        console.error('[CallSignaling] Cannot send - Supabase not configured');
         return { error: new Error('Supabase not configured') };
     }
 
-    const { error } = await supabase!.from('call_signaling').insert({
+    console.log('[CallSignaling] Sending signaling message:', { type, callerId, calleeId, callId, callType });
+
+    const { error, data } = await supabase!.from('call_signaling').insert({
         caller_id: callerId,
         callee_id: calleeId,
         type,
         payload,
         call_type: callType,
         call_id: callId,
-    });
+    }).select();
 
-    return { error: error ? new Error(error.message) : null };
+    if (error) {
+        console.error('[CallSignaling] Failed to send:', error);
+        return { error: new Error(error.message) };
+    }
+
+    console.log('[CallSignaling] Message sent successfully:', data);
+    return { error: null };
 }
 
 // Subscribe to incoming signaling messages for a user
@@ -43,8 +52,11 @@ export function subscribeToSignaling(
     onMessage: (message: SignalingMessage) => void
 ): RealtimeChannel | null {
     if (!isSupabaseConfigured()) {
+        console.warn('[CallSignaling] Supabase not configured');
         return null;
     }
+
+    console.log('[CallSignaling] Subscribing to incoming calls for user:', userId);
 
     const channel = supabase!
         .channel(`signaling:${userId}`)
@@ -57,6 +69,7 @@ export function subscribeToSignaling(
                 filter: `callee_id=eq.${userId}`,
             },
             (payload) => {
+                console.log('[CallSignaling] Received signaling message:', payload);
                 const row = payload.new as any;
                 onMessage({
                     id: row.id,
@@ -70,7 +83,14 @@ export function subscribeToSignaling(
                 });
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[CallSignaling] Subscription status:', status);
+            if (status === 'SUBSCRIBED') {
+                console.log('[CallSignaling] Successfully subscribed to call signals');
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error('[CallSignaling] Failed to subscribe - check if call_signaling table exists and Realtime is enabled');
+            }
+        });
 
     return channel;
 }
