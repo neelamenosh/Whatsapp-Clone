@@ -204,13 +204,13 @@ export function VideoCallModal({
             className="fixed inset-0 z-50 bg-black flex flex-col"
         >
             {/* Remote video (full screen) */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative bg-black flex items-center justify-center">
                 {remoteStream ? (
                     <video
                         ref={remoteVideoRef}
                         autoPlay
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
@@ -264,7 +264,8 @@ export function VideoCallModal({
                 {/* Local video (picture-in-picture) */}
                 <div
                     className={cn(
-                        'absolute bottom-24 right-4 w-32 h-44 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20',
+                        'absolute bottom-24 right-4 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20',
+                        'w-24 h-32 sm:w-32 sm:h-44 md:w-40 md:h-56',
                         isVideoDisabled && 'bg-gray-800'
                     )}
                 >
