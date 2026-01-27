@@ -18,6 +18,8 @@ import {
   isE2EEEnabled,
   initializeE2EE,
 } from '@/lib/encryption';
+import { getWebRTCService, type CallInfo } from '@/lib/webrtc';
+import { VideoCallModal } from '@/components/calls/VideoCallModal';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { ContactProfileModal } from './contact-profile-modal';
@@ -66,6 +68,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
   const [isClearing, setIsClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  // Video call state
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [currentCallInfo, setCurrentCallInfo] = useState<CallInfo | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -692,6 +697,20 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         onUnblock={handleUnblockUser}
       />
 
+      {/* Video Call Modal */}
+      {showVideoCall && loggedInUser && (
+        <VideoCallModal
+          isOpen={showVideoCall}
+          onClose={() => {
+            setShowVideoCall(false);
+            setCurrentCallInfo(null);
+          }}
+          callInfo={currentCallInfo}
+          isIncoming={false}
+          userId={loggedInUser.id}
+        />
+      )}
+
       {/* Header - sticky to stay fixed on mobile */}
       <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0">
         <button
@@ -742,6 +761,22 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => {
+              if (!isSupabaseConfigured()) {
+                alert('Video calls require Supabase to be configured for signaling.');
+                return;
+              }
+              if (!loggedInUser) return;
+              setCurrentCallInfo({
+                callId: '',
+                callerId: loggedInUser.id,
+                calleeId: participant.id,
+                callType: 'video',
+                callerName: participant.name,
+                callerAvatar: participant.avatar,
+              });
+              setShowVideoCall(true);
+            }}
             className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
             aria-label="Video call"
           >
@@ -749,6 +784,22 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
           </button>
           <button
             type="button"
+            onClick={() => {
+              if (!isSupabaseConfigured()) {
+                alert('Voice calls require Supabase to be configured for signaling.');
+                return;
+              }
+              if (!loggedInUser) return;
+              setCurrentCallInfo({
+                callId: '',
+                callerId: loggedInUser.id,
+                calleeId: participant.id,
+                callType: 'audio',
+                callerName: participant.name,
+                callerAvatar: participant.avatar,
+              });
+              setShowVideoCall(true);
+            }}
             className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
             aria-label="Voice call"
           >

@@ -11,6 +11,8 @@ import { getLiveChatService, getConsistentChatId } from '@/lib/live-chat';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseMessages from '@/lib/supabase/messages';
 import * as supabaseUsers from '@/lib/supabase/users';
+import { subscribeToSignaling, unsubscribeFromChannel, type SignalingMessage } from '@/lib/supabase/call-signaling';
+import { type CallInfo } from '@/lib/webrtc';
 import { TabBar } from './navigation/tab-bar';
 import { ChatList } from './chat/chat-list';
 import { ConversationView } from './chat/conversation-view';
@@ -18,6 +20,8 @@ import { StatusList } from './status/status-list';
 import { CallsList } from './calls/calls-list';
 import { ContactsList } from './chat/contacts-list';
 import { SettingsModal } from './settings/settings-modal';
+import { IncomingCallNotification } from './calls/IncomingCallNotification';
+import { VideoCallModal } from './calls/VideoCallModal';
 
 export function AppShell() {
   const router = useRouter();
@@ -26,12 +30,18 @@ export function AppShell() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // Incoming call state
+  const [incomingCallInfo, setIncomingCallInfo] = useState<CallInfo | null>(null);
+  const [showIncomingCall, setShowIncomingCall] = useState(false);
+  const [incomingOffer, setIncomingOffer] = useState<RTCSessionDescriptionInit | null>(null);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+
   // Use ref to track processed message IDs to prevent duplicate updates
   const processedMessageIds = useRef(new Set<string>());
   // Use ref to store current selectedChatId for use in callbacks
   const selectedChatIdRef = useRef<string | null>(null);
-  
+
   // Keep ref in sync with state
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
@@ -50,7 +60,7 @@ export function AppShell() {
     };
 
     window.addEventListener('popstate', handlePopState);
-    
+
     // Replace current history state on mount to mark the base state
     if (!window.history.state?.appBase) {
       window.history.replaceState({ appBase: true }, '');
@@ -69,39 +79,39 @@ export function AppShell() {
     } else {
       // Set current user data in mock-data
       setCurrentUserData(currentUser);
-      
+
       // Load user's chats from localStorage first
       const localChats = getUserChats();
       setChats(localChats);
-      
+
       // Initialize live chat service
       getLiveChatService();
-      
+
       // Initialize presence tracking (sets user online and tracks visibility)
       const cleanupPresence = initPresenceTracking();
-      
+
       // Load chats from Supabase to get messages from other users
       const loadSupabaseChats = async () => {
         if (isSupabaseConfigured()) {
           try {
             // Get all chats/conversations from Supabase
             const supabaseChats = await supabaseMessages.getUserChats(currentUser.id);
-            
+
             if (supabaseChats.length > 0) {
               // For each chat, get the other user's info and create chat objects
               const newChats: Chat[] = [];
-              
+
               for (const chatData of supabaseChats) {
                 // Check if this chat already exists in local chats
-                const existsLocally = localChats.some(c => 
+                const existsLocally = localChats.some(c =>
                   c.participants[0]?.id === chatData.recipientId ||
                   c.id === chatData.lastMessage.chatId
                 );
-                
+
                 if (!existsLocally) {
                   // Fetch the other user's info
                   const otherUser = await supabaseUsers.getUserById(chatData.recipientId);
-                  
+
                   if (otherUser) {
                     const chat: Chat = {
                       id: chatData.lastMessage.chatId,
@@ -132,7 +142,7 @@ export function AppShell() {
                   }
                 }
               }
-              
+
               if (newChats.length > 0) {
                 setChats(prev => {
                   // Merge new chats with existing, avoiding duplicates
@@ -148,7 +158,7 @@ export function AppShell() {
                 });
               }
             }
-            
+
             // Mark all pending messages as delivered since user is now online
             // This updates the sender's messages from 'sent' (single tick) to 'delivered' (double tick)
             await supabaseMessages.markMessagesAsDelivered(currentUser.id);
@@ -157,42 +167,78 @@ export function AppShell() {
           }
         }
       };
-      
+
       loadSupabaseChats();
       setIsLoading(false);
-      
+
       return () => {
         cleanupPresence();
       };
     }
   }, [router]);
 
+  // Subscribe to incoming call signaling
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !isSupabaseConfigured()) return;
+
+    const channel = subscribeToSignaling(currentUser.id, async (message: SignalingMessage) => {
+      if (message.type === 'offer') {
+        // Incoming call
+        let callerName = 'Unknown';
+        let callerAvatar = '';
+
+        // Try to get caller info
+        const callerUser = await supabaseUsers.getUserById(message.callerId);
+        if (callerUser) {
+          callerName = callerUser.displayName;
+          callerAvatar = callerUser.avatar || '';
+        }
+
+        setIncomingCallInfo({
+          callId: message.callId,
+          callerId: message.callerId,
+          calleeId: currentUser.id,
+          callType: message.callType,
+          callerName,
+          callerAvatar,
+        });
+        setIncomingOffer(message.payload as RTCSessionDescriptionInit);
+        setShowIncomingCall(true);
+      }
+    });
+
+    return () => {
+      unsubscribeFromChannel(channel);
+    };
+  }, []);
+
   // Listen for new messages and update chat list
   useEffect(() => {
     if (isLoading) return;
-    
+
     const liveChatService = getLiveChatService();
     const currentUser = getCurrentUser();
-    
+
     // Helper function to update chat list with new message
     const handleNewMessage = async (chatId: string, message: any, senderId: string) => {
       const currentUserNow = getCurrentUser();
       if (!currentUserNow) return;
-      
+
       // Skip if already processed
       if (processedMessageIds.current.has(message.id)) return;
       processedMessageIds.current.add(message.id);
-      
+
       // Limit set size to prevent memory leak
       if (processedMessageIds.current.size > 1000) {
         const arr = Array.from(processedMessageIds.current);
         processedMessageIds.current = new Set(arr.slice(-500));
       }
-      
+
       setChats((prev) => {
         // Find chat by ID or by matching the consistent chat ID with participants
         let chatIndex = prev.findIndex(c => c.id === chatId);
-        
+
         // If not found directly, check if any chat has a participant that matches
         if (chatIndex === -1) {
           chatIndex = prev.findIndex(c => {
@@ -202,7 +248,7 @@ export function AppShell() {
             return expectedChatId === chatId;
           });
         }
-        
+
         // Also check by sender ID
         if (chatIndex === -1) {
           chatIndex = prev.findIndex(c => {
@@ -211,13 +257,13 @@ export function AppShell() {
             return participant.id === senderId;
           });
         }
-        
+
         if (chatIndex === -1) {
           // Chat doesn't exist yet - we need to create a new chat
           // This will be handled asynchronously below
           return prev;
         }
-        
+
         const updated = [...prev];
         const currentSelectedId = selectedChatIdRef.current;
         updated[chatIndex] = {
@@ -225,27 +271,27 @@ export function AppShell() {
           lastMessage: message,
           updatedAt: new Date(),
           unreadCount: currentSelectedId === chatId || currentSelectedId === updated[chatIndex].id
-            ? updated[chatIndex].unreadCount 
+            ? updated[chatIndex].unreadCount
             : (senderId !== currentUserNow?.id ? updated[chatIndex].unreadCount + 1 : updated[chatIndex].unreadCount),
         };
-        
+
         // Sort by updatedAt
         updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        
+
         // Persistence is handled by debounced useEffect
-        
+
         return updated;
       });
     };
-    
+
     // Helper to create a new chat when message comes from unknown user
     const createChatForNewMessage = async (chatId: string, message: any, senderId: string) => {
       const currentUserNow = getCurrentUser();
       if (!currentUserNow || senderId === currentUserNow.id) return;
-      
+
       // Fetch sender's info from Supabase or local
       let senderUser: User | null = null;
-      
+
       if (isSupabaseConfigured()) {
         const supaUser = await supabaseUsers.getUserById(senderId);
         if (supaUser) {
@@ -260,17 +306,17 @@ export function AppShell() {
           };
         }
       }
-      
+
       if (!senderUser) {
         // Try local lookup
         senderUser = await findUserById(senderId);
       }
-      
+
       if (!senderUser) {
         console.log('Could not find sender user info:', senderId);
         return;
       }
-      
+
       // Create new chat
       const newChat: Chat = {
         id: chatId,
@@ -282,7 +328,7 @@ export function AppShell() {
         isMuted: false,
         updatedAt: new Date(),
       };
-      
+
       // Use functional update to check current state and avoid stale closure
       setChats((prev) => {
         // Check if chat already exists in current state
@@ -292,23 +338,23 @@ export function AppShell() {
           const participant = c.participants[0];
           return participant.id === senderId || getConsistentChatId(currentUserNow.id, participant.id) === chatId;
         });
-        
+
         if (existingChat) {
           return prev; // Don't add, already exists
         }
-        
+
         // Double check it doesn't exist by participant ID
         if (prev.some(c => c.participants[0]?.id === senderId)) {
           return prev;
         }
-        
+
         const updated = [newChat, ...prev];
         // Sort by updatedAt
         updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         return updated;
       });
     };
-    
+
     // Subscribe to localStorage/BroadcastChannel updates
     const unsubMessage = liveChatService.onMessage((chatId, message) => {
       handleNewMessage(chatId, message, message.senderId);
@@ -332,7 +378,7 @@ export function AppShell() {
         // Also try to create chat if it doesn't exist
         createChatForNewMessage(msg.chatId, formattedMessage, msg.senderId);
       });
-      
+
       if (channel) {
         supabaseUnsubscribe = () => supabaseMessages.unsubscribe(channel);
       }
@@ -345,13 +391,13 @@ export function AppShell() {
         if (prev.some(c => c.id === newChat.id)) {
           return prev;
         }
-        
+
         const updated = [newChat, ...prev];
         // Persistence handled by debounced useEffect
         return updated;
       });
     });
-    
+
     return () => {
       unsubMessage();
       unsubNewChat();
@@ -361,7 +407,7 @@ export function AppShell() {
 
   // Debounced save - only save after changes settle to prevent flickering
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   useEffect(() => {
     if (!isLoading && chats.length > 0) {
       // Clear any pending save
@@ -373,7 +419,7 @@ export function AppShell() {
         saveUserChats(chats);
       }, 500);
     }
-    
+
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -381,19 +427,19 @@ export function AppShell() {
     };
   }, [chats, isLoading]);
 
-    const selectedChat = selectedChatId ? (chats.find(c => c.id === selectedChatId) || getChatById(selectedChatId)) : null;
+  const selectedChat = selectedChatId ? (chats.find(c => c.id === selectedChatId) || getChatById(selectedChatId)) : null;
 
-    const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
-    
+
     // Push state to browser history so back button returns to chat list
     window.history.pushState({ inChat: true, chatId }, '');
-    
+
     // Mark chat as read
     setChats((prev) => {
       const chatIndex = prev.findIndex(c => c.id === chatId);
       if (chatIndex === -1) return prev;
-      
+
       const updated = [...prev];
       updated[chatIndex] = {
         ...updated[chatIndex],
@@ -405,7 +451,7 @@ export function AppShell() {
 
   const handleBackFromChat = () => {
     setSelectedChatId(null);
-    
+
     // Go back in history if we pushed a state when entering the chat
     if (window.history.state?.inChat) {
       window.history.back();
@@ -415,75 +461,75 @@ export function AppShell() {
   const handleOpenSettings = () => {
     setIsSettingsOpen(true);
   };
-  
+
   const handleChatsChange = (newChats: Chat[]) => {
     setChats(newChats);
     saveUserChats(newChats);
   };
-  
+
   // Handler for when a message is sent from the conversation view
   const handleMessageSent = useCallback((chatId: string, message: any) => {
     setChats((prev) => {
       const chatIndex = prev.findIndex(c => c.id === chatId || c.id === selectedChatId);
       if (chatIndex === -1) return prev;
-      
+
       const updated = [...prev];
       updated[chatIndex] = {
         ...updated[chatIndex],
         lastMessage: message,
         updatedAt: new Date(),
       };
-      
+
       // Sort by updatedAt to move this chat to the top
       updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      
+
       return updated;
     });
   }, [selectedChatId]);
 
-    const renderContent = () => {
-      // If a chat is selected, show the conversation view
-      if (selectedChat && activeTab === 'chats') {
+  const renderContent = () => {
+    // If a chat is selected, show the conversation view
+    if (selectedChat && activeTab === 'chats') {
+      return (
+        <ConversationView
+          chat={selectedChat}
+          onBack={handleBackFromChat}
+          onMessageSent={handleMessageSent}
+        />
+      );
+    }
+
+    // Otherwise show the appropriate tab content
+    switch (activeTab) {
+      case 'status':
+        return <StatusList />;
+      case 'chats':
         return (
-          <ConversationView 
-            chat={selectedChat} 
-            onBack={handleBackFromChat} 
-            onMessageSent={handleMessageSent}
+          <ChatList
+            selectedChatId={selectedChatId}
+            onSelectChat={handleSelectChat}
+            onOpenSettings={handleOpenSettings}
+            chats={chats}
+            onChatsChange={handleChatsChange}
           />
         );
-      }
-  
-      // Otherwise show the appropriate tab content
-      switch (activeTab) {
-        case 'status':
-          return <StatusList />;
-        case 'chats':
-          return (
-            <ChatList
-              selectedChatId={selectedChatId}
-              onSelectChat={handleSelectChat}
-              onOpenSettings={handleOpenSettings}
-              chats={chats}
-              onChatsChange={handleChatsChange}
-            />
-          );
-        case 'calls':
-          return <CallsList />;
-        case 'settings':
-          // We trigger the modal and stay on current view or switch to a placeholder
-          return (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <SettingsModal open={activeTab === 'settings'} onOpenChange={(open) => {
-                  if (!open) setActiveTab('chats');
-                }} />
-              </div>
+      case 'calls':
+        return <CallsList />;
+      case 'settings':
+        // We trigger the modal and stay on current view or switch to a placeholder
+        return (
+          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <SettingsModal open={activeTab === 'settings'} onOpenChange={(open) => {
+                if (!open) setActiveTab('chats');
+              }} />
             </div>
-          );
-        default:
-          return null;
-      }
-    };
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -496,6 +542,49 @@ export function AppShell() {
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
+      {/* Incoming Call Notification */}
+      {showIncomingCall && incomingCallInfo && (
+        <IncomingCallNotification
+          isOpen={showIncomingCall}
+          callInfo={incomingCallInfo}
+          onAccept={() => {
+            setShowIncomingCall(false);
+            setShowVideoCall(true);
+          }}
+          onDecline={async () => {
+            const currentUser = getCurrentUser();
+            if (currentUser && incomingCallInfo) {
+              const { sendSignalingMessage } = await import('@/lib/supabase/call-signaling');
+              await sendSignalingMessage(
+                currentUser.id,
+                incomingCallInfo.callerId,
+                'reject',
+                incomingCallInfo.callId
+              );
+            }
+            setShowIncomingCall(false);
+            setIncomingCallInfo(null);
+            setIncomingOffer(null);
+          }}
+        />
+      )}
+
+      {/* Video Call Modal (for answered incoming calls) */}
+      {showVideoCall && incomingCallInfo && getCurrentUser() && (
+        <VideoCallModal
+          isOpen={showVideoCall}
+          onClose={() => {
+            setShowVideoCall(false);
+            setIncomingCallInfo(null);
+            setIncomingOffer(null);
+          }}
+          callInfo={incomingCallInfo}
+          isIncoming={true}
+          incomingOffer={incomingOffer}
+          userId={getCurrentUser()!.id}
+        />
+      )}
+
       {/* Main content area */}
       <main className={cn(
         'flex-1 overflow-hidden relative',
@@ -508,12 +597,12 @@ export function AppShell() {
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
 
       {/* Tab bar - hide when viewing a conversation */}
-        {!selectedChat && (
-          <TabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-        )}
+      {!selectedChat && (
+        <TabBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      )}
     </div>
   );
 }
