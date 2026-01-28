@@ -227,3 +227,26 @@ export function unsubscribeFromCallLogs(channel: RealtimeChannel | null): void {
         supabase!.removeChannel(channel);
     }
 }
+
+// Clear all call logs for a user
+export async function clearCallLogsForUser(userId: string): Promise<{ error: Error | null }> {
+    if (!isSupabaseConfigured()) {
+        console.error('[CallLogs] Cannot clear - Supabase not configured');
+        return { error: new Error('Supabase not configured') };
+    }
+
+    console.log('[CallLogs] Clearing all call logs for user:', userId);
+
+    const { error } = await supabase!
+        .from('call_logs')
+        .delete()
+        .or(`caller_id.eq.${userId},callee_id.eq.${userId}`);
+
+    if (error) {
+        console.error('[CallLogs] Failed to clear:', error);
+        return { error: new Error(error.message) };
+    }
+
+    console.log('[CallLogs] Call logs cleared successfully');
+    return { error: null };
+}

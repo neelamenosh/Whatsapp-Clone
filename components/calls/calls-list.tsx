@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { CallItem } from './call-item';
-import { Search, Phone, Video, Link2, MoreHorizontal, Loader2 } from 'lucide-react';
-import { getCallLogsForUser, subscribeToCallLogs, unsubscribeFromCallLogs, type CallLog } from '@/lib/supabase/call-logs';
+import { Search, Phone, Video, Link2, Trash2, Loader2 } from 'lucide-react';
+import { getCallLogsForUser, subscribeToCallLogs, unsubscribeFromCallLogs, clearCallLogsForUser, type CallLog } from '@/lib/supabase/call-logs';
 import { getCurrentUser, getAllRegisteredUsers } from '@/lib/auth-store';
 import type { Call, User } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -146,13 +146,23 @@ export function CallsList() {
             >
               <Link2 className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label="More options"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
+            {calls.length > 0 && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (currentUser?.id && confirm('Clear all call history?')) {
+                    const { error } = await clearCallLogsForUser(currentUser.id);
+                    if (!error) {
+                      setCalls([]);
+                    }
+                  }
+                }}
+                className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                aria-label="Clear call history"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
 
