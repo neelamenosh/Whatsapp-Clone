@@ -20,25 +20,43 @@ export function CallsList() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [subscriptionChannel, setSubscriptionChannel] = useState<RealtimeChannel | null>(null);
 
-  // Initialize current user and fetch all users
+  // Initialize current user and fetch all users and call logs
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
 
-    const fetchUsers = async () => {
+    const initializeData = async () => {
+      // First, fetch all users
       const users = await getAllRegisteredUsers();
       setAllUsers(users);
+
+      // Only fetch call logs after we have the users and currentUser
+      if (user?.id) {
+        setLoading(true);
+        const { data, error } = await getCallLogsForUser(user.id);
+        if (!error && data) {
+          // Convert call logs to UI format using the fetched users
+          const convertedCalls = data
+            .map(log => convertLogToCall(log, user.id, users))
+            .filter((call): call is Call => call !== null);
+          setCalls(convertedCalls);
+        }
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
     };
-    fetchUsers();
+
+    initializeData();
   }, []);
 
-  // Convert CallLog from database to Call type for UI
-  const callLogToCall = useCallback((log: CallLog, userId: string): Call | null => {
+  // Helper function to convert CallLog to Call (not dependent on state)
+  const convertLogToCall = (log: CallLog, userId: string, users: User[]): Call | null => {
     const isOutgoing = log.callerId === userId;
     const otherUserId = isOutgoing ? log.calleeId : log.callerId;
 
     // Find the other user's info
-    const otherUser = allUsers.find(u => u.id === otherUserId);
+    const otherUser = users.find(u => u.id === otherUserId);
 
     // Map database status to UI status
     let uiStatus: Call['status'];
@@ -70,27 +88,12 @@ export function CallsList() {
       endedAt: log.endedAt,
       duration: log.duration,
     };
+  };
+
+  // Callback version for real-time updates (uses state)
+  const callLogToCall = useCallback((log: CallLog, userId: string): Call | null => {
+    return convertLogToCall(log, userId, allUsers);
   }, [allUsers]);
-
-  // Fetch call logs when user is available
-  useEffect(() => {
-    if (!currentUser?.id) return;
-
-    const fetchCalls = async () => {
-      setLoading(true);
-
-      const { data, error } = await getCallLogsForUser(currentUser.id);
-      if (!error && data) {
-        const convertedCalls = data
-          .map(log => callLogToCall(log, currentUser.id))
-          .filter((call): call is Call => call !== null);
-        setCalls(convertedCalls);
-      }
-      setLoading(false);
-    };
-
-    fetchCalls();
-  }, [currentUser?.id, callLogToCall]);
 
   // Subscribe to real-time updates
   useEffect(() => {

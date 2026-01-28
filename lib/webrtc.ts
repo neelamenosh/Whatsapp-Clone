@@ -547,19 +547,10 @@ export class WebRTCService {
                 answer
             );
 
-            // Create call log for incoming call
+            // The caller already created the call log - we just store the call start time
+            // for duration calculation when the call ends
             this.callStartTime = new Date();
-            const { data: callLog } = await createCallLog(
-                callInfo.callerId,
-                userId,
-                callInfo.callType,
-                'incoming',
-                this.currentCallId
-            );
-            if (callLog) {
-                this.callLogId = callLog.id;
-                console.log('[WebRTC] Call log created for incoming call:', callLog.id);
-            }
+            console.log('[WebRTC] Answered call, using caller\'s call log for:', this.currentCallId);
         } catch (error) {
             console.error('[WebRTC] Error answering call:', error);
             this.onCallStateChange?.('failed');
