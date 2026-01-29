@@ -2,22 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { chats as initialChats } from '@/lib/mock-data';
 import { getCurrentUser } from '@/lib/auth-store';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as supabaseUsers from '@/lib/supabase/users';
 import { ChatListItem } from './chat-list-item';
 import { NewChatModal } from './new-chat-modal';
 import { ProfileModal } from '@/components/profile/profile-modal';
-import { ServerSidebar } from '@/components/shared/server-sidebar';
-import {
-  Search,
-  ChevronRight,
-  Sparkles,
-  Volume2,
-  Users,
-  ChevronDown,
-  Plus
-} from 'lucide-react';
+import { Search, Camera, MoreHorizontal, Plus, Users, Globe, Tag, Smartphone, Settings } from 'lucide-react';
 import type { Chat, User } from '@/lib/types';
 
 interface ChatListProps {
@@ -28,24 +20,34 @@ interface ChatListProps {
   onChatsChange: (chats: Chat[]) => void;
 }
 
+const menuItems = [
+  { icon: Users, label: 'New Group' },
+  { icon: Globe, label: 'Communities' },
+  { icon: Tag, label: 'Labels' },
+  { icon: Smartphone, label: 'Linked devices' },
+  { icon: Settings, label: 'Settings' },
+];
+
 export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, onChatsChange }: ChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
-  const [isVoiceExpanded, setIsVoiceExpanded] = useState(true);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Load current user
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
-  }, [isProfileOpen]);
+  }, [isProfileOpen]); // Refresh when profile closes
 
-  // Subscribe to status updates
+  // Subscribe to all users' status changes via Supabase
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
+    
     const unsubscribe = supabaseUsers.subscribeToAllUsersStatus((userId, status, lastSeen) => {
+      // Update the status of participants in chats
       onChatsChange(chats.map(chat => {
         const participantIndex = chat.participants.findIndex(p => p.id === userId);
         if (participantIndex !== -1) {
@@ -60,170 +62,262 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
         return chat;
       }));
     });
-    return () => { if (unsubscribe) unsubscribe(); };
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [chats, onChatsChange]);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
+
   const filteredChats = chats.filter((chat) => {
-    const name = chat.type === 'group'
-      ? 'Design Team'
+    const name = chat.type === 'group' 
+      ? 'Design Team' 
       : chat.participants[0].name;
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      {/* Sidebar */}
-      <ServerSidebar activeId="home" />
+  const pinnedChats = filteredChats.filter((chat) => chat.isPinned);
+  const regularChats = filteredChats.filter((chat) => !chat.isPinned);
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden relative">
-        {/* User Header */}
-        <div className="p-4">
-          <button
-            type="button"
-            onClick={() => setIsProfileOpen(true)}
-            className="flex items-center justify-between w-full p-2 rounded-2xl hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="relative">
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="p-4 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          {/* User Avatar and Title */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              className="relative group"
+              aria-label="Open profile"
+            >
+              <div className={cn(
+                'w-10 h-10 rounded-full overflow-hidden',
+                'ring-2 ring-glass-border/50',
+                'transition-all duration-200',
+                'group-hover:ring-primary group-hover:scale-105'
+              )}>
                 <img
                   src={currentUser?.avatar || "/placeholder.svg"}
-                  alt={currentUser?.name}
-                  className="w-12 h-12 rounded-full object-cover"
+                  alt={currentUser?.name || "Profile"}
+                  className="w-full h-full object-cover"
                   crossOrigin="anonymous"
                 />
-                <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-primary border-2 border-background" />
               </div>
-              <div className="flex flex-col text-left">
-                <span className="font-bold text-foreground leading-tight">{currentUser?.name || "User"}</span>
-                <span className="text-xs text-muted-foreground">@marcaum.eth</span>
+              {currentUser?.status === 'online' && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background" />
+              )}
+            </button>
+            <h1 className="text-2xl font-bold text-foreground">Chats</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label="Camera"
+            >
+              <Camera className="h-5 w-5" />
+            </button>
+            <div className="relative" ref={menuRef}>
+              <button 
+                type="button"
+                className={cn(
+                  "glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground",
+                  isMenuOpen && "text-foreground"
+                )}
+                aria-label="More options"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+
+              {/* Liquid Glass Dropdown Menu - Green Accent */}
+                <div
+                  className={cn(
+                    "absolute right-0 top-full mt-2 w-52 py-2 rounded-2xl z-50",
+                    "origin-top-right transition-all duration-300 ease-out",
+                    "bg-popover/80 backdrop-blur-2xl border border-primary/20 shadow-xl",
+                    isMenuOpen 
+                      ? "opacity-100 scale-100 translate-y-0" 
+                      : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                  )}
+                >
+                  {/* Top highlight for glass refraction */}
+                  <span 
+                    className="absolute top-2 left-4 right-4 h-px pointer-events-none bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+                  />
+                
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground/90",
+                      "hover:bg-green-50/60 dark:hover:bg-green-900/20 transition-colors duration-200",
+                      "active:bg-green-100/60 dark:active:bg-green-900/30"
+                    )}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (item.label === 'Settings') onOpenSettings();
+                    }}
+                  >
+                    <item.icon className="h-5 w-5 text-primary" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
+          </div>
         </div>
 
         {/* Search */}
-        <div className="px-4 mb-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search or ask the AI"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full glass-input pl-12 pr-4 py-3 text-sm text-foreground bg-muted/30 border-none rounded-2xl focus:bg-muted/50 transition-colors"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full glass-input pl-12 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground"
+          />
         </div>
-
-        {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {/* Summary Section */}
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-              className="flex items-center justify-between w-full px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-            >
-              <span>Summary</span>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", !isSummaryExpanded && "-rotate-90")} />
-            </button>
-            {isSummaryExpanded && (
-              <div className="px-4 py-2">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-2 w-full py-3 bg-primary/10 text-primary rounded-2xl font-medium hover:bg-primary/15 transition-colors border border-primary/20"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  <span>Summarize the day</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Voice Section */}
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setIsVoiceExpanded(!isVoiceExpanded)}
-              className="flex items-center justify-between w-full px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-            >
-              <span>Voice</span>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", !isVoiceExpanded && "-rotate-90")} />
-            </button>
-            {isVoiceExpanded && (
-              <div className="px-2 space-y-1">
-                <button
-                  type="button"
-                  className="flex items-center gap-3 w-full p-3 rounded-2xl hover:bg-muted/50 transition-colors group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Volume2 className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-semibold">Success Squad</p>
-                    <div className="flex -space-x-2 mt-1">
-                      {[1, 2, 3].map((i) => (
-                        <img
-                          key={i}
-                          src={`https://images.unsplash.com/photo-${1500000000000 + i}?w=50&h=50&fit=crop&crop=face`}
-                          alt="participant"
-                          className="w-5 h-5 rounded-full border border-background"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Chats Section */}
-          <div>
-            <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Chats
-            </div>
-            <div className="px-2">
-              {filteredChats.map((chat) => (
-                <ChatListItem
-                  key={chat.id}
-                  chat={chat}
-                  isSelected={selectedChatId === chat.id}
-                  onClick={() => onSelectChat(chat.id)}
-                  onChatUpdate={(updatedChat) => {
-                    onChatsChange(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
-                  }}
-                  onChatDelete={(chatId) => {
-                    onChatsChange(chats.filter(c => c.id !== chatId));
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Floating Action Button */}
-        <button
-          type="button"
-          onClick={() => setIsNewChatOpen(true)}
-          className="absolute bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:scale-110 active:scale-95 transition-all z-10"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
       </div>
 
-      {/* Modals */}
+      {/* Chat List */}
+      <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-hide">
+        {pinnedChats.length > 0 && (
+          <div className="mb-2">
+            <p className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Pinned
+            </p>
+            {pinnedChats.map((chat) => (
+              <ChatListItem
+                key={chat.id}
+                chat={chat}
+                isSelected={selectedChatId === chat.id}
+                onClick={() => onSelectChat(chat.id)}
+                onChatUpdate={(updatedChat) => {
+                  onChatsChange(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+                }}
+                onChatDelete={(chatId) => {
+                  onChatsChange(chats.filter(c => c.id !== chatId));
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {regularChats.length > 0 && (
+          <div>
+            {pinnedChats.length > 0 && (
+              <p className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                All Chats
+              </p>
+            )}
+            {regularChats.map((chat) => (
+              <ChatListItem
+                key={chat.id}
+                chat={chat}
+                isSelected={selectedChatId === chat.id}
+                onClick={() => onSelectChat(chat.id)}
+                onChatUpdate={(updatedChat) => {
+                  onChatsChange(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+                }}
+                onChatDelete={(chatId) => {
+                  onChatsChange(chats.filter(c => c.id !== chatId));
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {filteredChats.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+              <Search className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground">No conversations found</p>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Action Button - Green Glass Droplet */}
+      <button
+        type="button"
+        onClick={() => setIsNewChatOpen(true)}
+        className={cn(
+          'absolute bottom-24 right-4 w-14 h-14 rounded-full',
+          'flex items-center justify-center',
+          'transition-all duration-300 hover:scale-110 active:scale-95',
+          'group overflow-hidden'
+        )}
+        style={{
+          background: 'linear-gradient(135deg, rgba(34,197,94,0.85) 0%, rgba(22,163,74,0.9) 50%, rgba(21,128,61,0.95) 100%)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.3)',
+          boxShadow: `
+            0 8px 32px rgba(22,163,74,0.3),
+            0 2px 8px rgba(0,0,0,0.15),
+            inset 0 -4px 12px rgba(21,128,61,0.3),
+            inset 0 4px 12px rgba(134,239,172,0.4),
+            inset 2px 2px 4px rgba(255,255,255,0.3)
+          `,
+        }}
+        aria-label="New chat"
+      >
+        {/* Refraction highlight - top left */}
+        <span 
+          className="absolute top-1.5 left-2 w-4 h-2 rounded-full opacity-90 pointer-events-none"
+          style={{
+            background: 'linear-gradient(135deg, rgba(187,247,208,0.9) 0%, rgba(134,239,172,0) 100%)',
+          }}
+        />
+        {/* Secondary highlight - bottom curve */}
+        <span 
+          className="absolute bottom-2 right-2 w-6 h-3 rounded-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(187,247,208,0.6) 0%, transparent 70%)',
+          }}
+        />
+        {/* Caustic light effect */}
+        <span 
+          className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35) 0%, transparent 50%)',
+          }}
+        />
+        <Plus className="h-6 w-6 text-white relative z-10 drop-shadow-sm" />
+      </button>
+
+      {/* New Chat Modal */}
       <NewChatModal
         open={isNewChatOpen}
         onOpenChange={setIsNewChatOpen}
         existingChats={chats}
         onStartChat={(newChat) => {
+          // Check if chat already exists
           const exists = chats.find(c => c.id === newChat.id);
-          if (!exists) onChatsChange([newChat, ...chats]);
+          if (!exists) {
+            onChatsChange([newChat, ...chats]);
+          }
           onSelectChat(newChat.id);
         }}
       />
+
+      {/* Profile Modal */}
       <ProfileModal
         open={isProfileOpen}
         onOpenChange={setIsProfileOpen}

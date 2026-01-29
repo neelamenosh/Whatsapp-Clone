@@ -15,7 +15,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  type: 'text' | 'image' | 'voice' | 'location' | 'document' | 'video' | 'audio' | 'file';
+  type: 'text' | 'image' | 'voice' | 'location' | 'document';
   expiresAt?: Date;
   replyTo?: string;
   reactions?: { emoji: string; userId: string }[];
@@ -55,28 +55,4 @@ export interface Call {
   duration?: number;
 }
 
-export type TabType = 'contacts' | 'calls' | 'chats' | 'node' | 'settings';
-
-export interface Node {
-  id: string;
-  name: string;
-  icon?: string;
-  sections: NodeSection[];
-}
-
-export interface NodeSection {
-  id: string;
-  name: string;
-  type: 'category' | 'external';
-  icon?: string;
-  channels: Channel[];
-  isExpanded: boolean;
-}
-
-export interface Channel {
-  id: string;
-  name: string;
-  type: 'text' | 'voice';
-  unreadCount?: number;
-  participants?: User[];
-}
+export type TabType = 'chats' | 'status' | 'calls' | 'settings' | 'contacts';
