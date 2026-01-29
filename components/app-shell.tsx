@@ -19,6 +19,8 @@ import { ConversationView } from './chat/conversation-view';
 import { StatusList } from './status/status-list';
 import { CallsList } from './calls/calls-list';
 import { ContactsList } from './chat/contacts-list';
+import { NodeView } from './node/node-view';
+import { SettingsView } from './settings/settings-view';
 import { SettingsModal } from './settings/settings-modal';
 import { IncomingCallNotification } from './calls/IncomingCallNotification';
 import { VideoCallModal } from './calls/VideoCallModal';
@@ -501,8 +503,21 @@ export function AppShell() {
 
     // Otherwise show the appropriate tab content
     switch (activeTab) {
-      case 'status':
-        return <StatusList />;
+      case 'contacts':
+        return <ContactsList onSelectUser={(userId) => {
+          // Logic to start/open chat with user
+          const existingChat = chats.find(c =>
+            c.type === 'individual' && c.participants.some(p => p.id === userId)
+          );
+          if (existingChat) {
+            handleSelectChat(existingChat.id);
+            setActiveTab('chats');
+          } else {
+            // Create a new temporary chat state or handle new chat creation
+            // For now, let's just log
+            console.log('Start new chat with:', userId);
+          }
+        }} />;
       case 'chats':
         return (
           <ChatList
@@ -515,17 +530,10 @@ export function AppShell() {
         );
       case 'calls':
         return <CallsList />;
+      case 'node':
+        return <NodeView />;
       case 'settings':
-        // We trigger the modal and stay on current view or switch to a placeholder
-        return (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
-            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <SettingsModal open={activeTab === 'settings'} onOpenChange={(open) => {
-                if (!open) setActiveTab('chats');
-              }} />
-            </div>
-          </div>
-        );
+        return <SettingsView />;
       default:
         return null;
     }
