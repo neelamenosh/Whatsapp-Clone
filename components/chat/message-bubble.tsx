@@ -131,13 +131,13 @@ export function MessageBubble({ message, isOwn, showTimestamp = true, searchQuer
         isOwn ? 'justify-end' : 'justify-start'
       )}
     >
-      <div
-        className={cn(
-          'max-w-[85%] sm:max-w-[75%] md:max-w-[70%] lg:max-w-[65%] px-4 py-2.5',
-          'animate-in fade-in-0 slide-in-from-bottom-2 duration-300',
-          isOwn ? 'message-bubble-sent' : 'message-bubble-received'
-        )}
-      >
+        <div
+          className={cn(
+            'max-w-[85%] sm:max-w-[75%] md:max-w-[70%] lg:max-w-[65%] px-4 py-2.5',
+            'animate-liquid',
+            isOwn ? 'message-bubble-sent' : 'message-bubble-received'
+          )}
+        >
         <p className={cn(
           'text-[15px] leading-relaxed',
           isOwn ? 'text-primary-foreground' : 'text-foreground'

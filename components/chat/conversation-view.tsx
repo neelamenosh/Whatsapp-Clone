@@ -712,22 +712,22 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       )}
 
       {/* Header - sticky to stay fixed on mobile */}
-      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0">
+      <div className="glass px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0 border-b-0 rounded-none shadow-none">
         <button
           type="button"
           onClick={onBack}
-          className="p-2 -ml-2 rounded-full hover:bg-muted/50 transition-colors"
+          className="p-2 -ml-2 rounded-full hover:bg-muted/50 transition-colors animate-liquid"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
 
         <div
-          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity animate-liquid"
           onClick={() => !isGroup && setShowContactProfile(true)}
         >
           <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-glass-border/30">
+            <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-glass-border/30 shadow-lg">
               <img
                 src={participant.avatar || "/placeholder.svg"}
                 alt={displayName}
@@ -736,7 +736,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               />
             </div>
             {isOnline && !isGroup && (
-              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background" />
+              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background online-pulse" />
             )}
           </div>
 
@@ -750,15 +750,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               )}
             </div>
             <p className={cn(
-              'text-xs',
-              isOnline ? 'text-online' : 'text-muted-foreground'
+              'text-xs transition-colors duration-500',
+              isOnline ? 'text-primary font-medium' : 'text-muted-foreground'
             )}>
               {getStatusText()}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 animate-liquid">
           <button
             type="button"
             onClick={() => {
@@ -777,7 +777,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               });
               setShowVideoCall(true);
             }}
-            className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
             aria-label="Video call"
           >
             <Video className="h-5 w-5" />
@@ -800,7 +800,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               });
               setShowVideoCall(true);
             }}
-            className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
             aria-label="Voice call"
           >
             <Phone className="h-5 w-5" />
@@ -811,14 +811,14 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
-              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
               aria-label="More options"
             >
               <MoreVertical className="h-5 w-5" />
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-12 w-56 glass-panel rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 top-12 w-56 glass rounded-xl shadow-xl py-2 z-50 animate-liquid">
                 {/* View Contact */}
                 {!isGroup && (
                   <button

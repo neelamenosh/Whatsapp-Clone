@@ -23,9 +23,7 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
       className={cn(
         'fixed bottom-8 left-1/2 -translate-x-1/2 z-50',
         'flex items-center p-1.5 gap-1',
-        'rounded-[2.5rem] bg-foreground/10',
-        'backdrop-blur-2xl border border-foreground/5',
-        'shadow-[0_20px_50px_rgba(0,0,0,0.2)]',
+        'rounded-[2.5rem] glass',
         'safe-area-bottom'
       )}
     >

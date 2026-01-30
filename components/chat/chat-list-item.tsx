@@ -303,9 +303,9 @@ export function ChatListItem({ chat, isSelected, onClick, onChatUpdate, onChatDe
         onContextMenu={handleContextMenu}
         className={cn(
           'w-full flex items-center gap-3 p-4 rounded-2xl transition-all duration-300 text-left',
-          'hover:scale-[1.01] active:scale-[0.99]',
+          'hover:scale-[1.01] active:scale-[0.99] animate-liquid',
           isSelected 
-            ? 'glass-card bg-primary/10' 
+            ? 'glass bg-primary/20' 
             : 'hover:bg-card/50'
         )}
       >
