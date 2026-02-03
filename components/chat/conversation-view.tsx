@@ -712,22 +712,22 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
       )}
 
       {/* Header - sticky to stay fixed on mobile */}
-      <div className="glass px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0 border-b-0 rounded-none shadow-none">
+      <div className="glass-panel px-4 py-3 flex items-center gap-3 z-20 sticky top-0 shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="p-2 -ml-2 rounded-full hover:bg-muted/50 transition-colors animate-liquid"
+          className="p-2 -ml-2 rounded-full hover:bg-muted/50 transition-colors"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
 
         <div
-          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity animate-liquid"
+          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => !isGroup && setShowContactProfile(true)}
         >
           <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-glass-border/30 shadow-lg">
+            <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-glass-border/30">
               <img
                 src={participant.avatar || "/placeholder.svg"}
                 alt={displayName}
@@ -736,7 +736,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               />
             </div>
             {isOnline && !isGroup && (
-              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background online-pulse" />
+              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-background" />
             )}
           </div>
 
@@ -750,15 +750,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               )}
             </div>
             <p className={cn(
-              'text-xs transition-colors duration-500',
-              isOnline ? 'text-primary font-medium' : 'text-muted-foreground'
+              'text-xs',
+              isOnline ? 'text-online' : 'text-muted-foreground'
             )}>
               {getStatusText()}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 animate-liquid">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => {
@@ -777,7 +777,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               });
               setShowVideoCall(true);
             }}
-            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
+            className="ios-button-icon text-muted-foreground hover:text-foreground"
             aria-label="Video call"
           >
             <Video className="h-5 w-5" />
@@ -800,7 +800,7 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               });
               setShowVideoCall(true);
             }}
-            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
+            className="ios-button-icon text-muted-foreground hover:text-foreground"
             aria-label="Voice call"
           >
             <Phone className="h-5 w-5" />
@@ -811,27 +811,33 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
-              className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full hover:bg-muted/50"
+              className={cn(
+                "ios-button-icon text-muted-foreground hover:text-foreground",
+                showMenu && "bg-black/5 dark:bg-white/10"
+              )}
               aria-label="More options"
             >
               <MoreVertical className="h-5 w-5" />
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-12 w-56 glass rounded-xl shadow-xl py-2 z-50 animate-liquid">
+              <div className="absolute right-0 top-12 w-56 ios-menu-card py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* View Contact */}
                 {!isGroup && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMenu(false);
-                      setShowContactProfile(true);
-                    }}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <UserIcon className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-foreground">View Contact</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowContactProfile(true);
+                      }}
+                      className="ios-menu-item w-full"
+                    >
+                      <UserIcon className="h-5 w-5 text-muted-foreground" />
+                      <span>View Contact</span>
+                    </button>
+                    <div className="ios-menu-separator" />
+                  </>
                 )}
 
                 {/* Search */}
@@ -841,11 +847,12 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                     setShowMenu(false);
                     setShowSearch(true);
                   }}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+                  className="ios-menu-item w-full"
                 >
                   <Search className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-foreground">Search</span>
+                  <span>Search</span>
                 </button>
+                <div className="ios-menu-separator" />
 
                 {/* Clear Chat */}
                 <button
@@ -855,45 +862,44 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                     setShowClearConfirm(true);
                   }}
                   disabled={isClearing}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+                  className="ios-menu-item w-full disabled:opacity-50"
                 >
                   <Trash2 className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-foreground">
-                    {isClearing ? 'Clearing...' : 'Clear Chat'}
-                  </span>
+                  <span>{isClearing ? 'Clearing...' : 'Clear Chat'}</span>
                 </button>
-
-                <div className="h-px bg-border my-2" />
 
                 {/* Block/Unblock */}
                 {!isGroup && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMenu(false);
-                      if (isBlocked) {
-                        handleUnblockUser();
-                      } else {
-                        setShowBlockConfirm(true);
-                      }
-                    }}
-                    className={cn(
-                      'w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left',
-                      isBlocked ? 'text-primary' : 'text-destructive'
-                    )}
-                  >
-                    {isBlocked ? (
-                      <>
-                        <Unlock className="h-5 w-5" />
-                        <span className="text-sm">Unblock Contact</span>
-                      </>
-                    ) : (
-                      <>
-                        <Ban className="h-5 w-5" />
-                        <span className="text-sm">Block Contact</span>
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <div className="ios-menu-separator" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        if (isBlocked) {
+                          handleUnblockUser();
+                        } else {
+                          setShowBlockConfirm(true);
+                        }
+                      }}
+                      className={cn(
+                        'ios-menu-item w-full',
+                        isBlocked ? '' : 'destructive'
+                      )}
+                    >
+                      {isBlocked ? (
+                        <>
+                          <Unlock className="h-5 w-5" />
+                          <span>Unblock Contact</span>
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="h-5 w-5" />
+                          <span>Block Contact</span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1116,20 +1122,21 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
 
       {/* Input - hide when blocked */}
       {!isBlocked && (
-        <div className="glass-panel px-4 py-3">
+        <div className="px-4 py-3 bg-background/80 backdrop-blur-xl border-t border-glass-border">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              className="ios-button-icon w-10 h-10 text-muted-foreground hover:text-foreground"
               aria-label="Add emoji"
             >
-              <Smile className="h-6 w-6" />
+              <Smile className="h-5 w-5" />
             </button>
 
-            <div className="flex-1 relative">
+            {/* iOS 26 Capsule Input */}
+            <div className="flex-1 ios-search-bar py-2.5">
               <textarea
                 ref={inputRef}
-                placeholder="Message..."
+                placeholder="Message"
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
@@ -1139,20 +1146,20 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
                   }
                 }}
                 rows={1}
-                className="w-full glass-input px-4 py-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto leading-normal"
-                style={{ minHeight: '44px', maxHeight: '120px' }}
+                className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto leading-normal outline-none"
+                style={{ minHeight: '24px', maxHeight: '100px' }}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label="Attach file"
                 >
                   <Paperclip className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
-                  className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label="Camera"
                 >
                   <Camera className="h-5 w-5" />
@@ -1160,14 +1167,15 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               </div>
             </div>
 
+            {/* iOS 26 Send/Mic Button */}
             {inputValue.trim() ? (
               <button
                 type="button"
                 onClick={handleSend}
                 className={cn(
-                  'w-12 h-12 rounded-full bg-primary text-primary-foreground',
+                  'w-11 h-11 rounded-full bg-primary text-primary-foreground',
                   'flex items-center justify-center',
-                  'shadow-lg shadow-primary/30',
+                  'shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.2)]',
                   'transition-all duration-200 hover:scale-105 active:scale-95'
                 )}
                 aria-label="Send message"
@@ -1178,9 +1186,9 @@ export function ConversationView({ chat, onBack, onMessageSent }: ConversationVi
               <button
                 type="button"
                 className={cn(
-                  'w-12 h-12 rounded-full bg-primary text-primary-foreground',
+                  'w-11 h-11 rounded-full bg-primary text-primary-foreground',
                   'flex items-center justify-center',
-                  'shadow-lg shadow-primary/30',
+                  'shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.2)]',
                   'transition-all duration-200 hover:scale-105 active:scale-95'
                 )}
                 aria-label="Voice message"

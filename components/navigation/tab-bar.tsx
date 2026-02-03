@@ -19,11 +19,18 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
   ];
 
   return (
-    <nav 
+    <nav
       className={cn(
         'fixed bottom-8 left-1/2 -translate-x-1/2 z-50',
-        'flex items-center p-1.5 gap-1',
-        'rounded-[2.5rem] glass',
+        'flex items-center p-2 gap-1',
+        // iOS 26 style: cleaner white/dark glass with stronger blur
+        'rounded-[32px]',
+        'bg-white/85 dark:bg-black/70',
+        'backdrop-blur-[32px]',
+        'border border-black/[0.06] dark:border-white/[0.08]',
+        // iOS 26 floating shadow
+        'shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]',
+        'dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.3)]',
         'safe-area-bottom'
       )}
     >
@@ -37,58 +44,55 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
             type="button"
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'relative flex flex-col items-center justify-center min-w-[72px] px-2 py-2.5 rounded-[2rem]',
-              'transition-colors duration-300 outline-none select-none',
-              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/60'
+              'relative flex flex-col items-center justify-center min-w-[70px] px-3 py-2.5 rounded-[26px]',
+              'transition-all duration-300 outline-none select-none',
+              isActive
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground/70'
             )}
             aria-label={tab.label}
           >
-            {/* Liquid Glass Pill */}
+            {/* iOS 26 Active Pill Indicator */}
             {isActive && (
               <motion.div
                 layoutId="active-pill"
                 className={cn(
-                  'absolute inset-0 z-0 rounded-[2rem]',
-                  'bg-foreground/[0.08]',
-                  'backdrop-blur-md',
-                  'border border-foreground/20',
-                  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.1)]',
-                  'before:absolute before:inset-0 before:rounded-[2rem] before:bg-gradient-to-b before:from-foreground/10 before:to-transparent'
+                  'absolute inset-0 z-0 rounded-[26px]',
+                  // iOS 26 subtle fill with depth
+                  'bg-black/[0.05] dark:bg-white/[0.12]',
+                  // Subtle inner shadow for 3D depth
+                  'shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_2px_8px_rgba(0,0,0,0.06)]',
+                  'dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.2)]'
                 )}
                 transition={{
                   type: 'spring',
-                  stiffness: 400,
-                  damping: 30,
-                  mass: 1
+                  stiffness: 500,
+                  damping: 35,
+                  mass: 0.8
                 }}
               />
             )}
 
             <div className="relative z-10 flex flex-col items-center gap-1">
               <div className="relative">
-                <Icon 
+                <Icon
                   className={cn(
-                    'h-[22px] w-[22px] transition-transform duration-300',
+                    'h-[22px] w-[22px] transition-all duration-300',
                     isActive && 'scale-110'
-                  )} 
+                  )}
+                  strokeWidth={isActive ? 2.2 : 1.8}
                 />
               </div>
-              
+
               <span className={cn(
                 'text-[10px] font-semibold tracking-wide uppercase',
                 'transition-all duration-300',
-                isActive ? 'opacity-100 scale-100' : 'opacity-40 scale-90'
+                isActive
+                  ? 'opacity-100 scale-100'
+                  : 'opacity-50 scale-95'
               )}>
                 {tab.label}
               </span>
-
-              {/* Liquid Glow Dot */}
-              {isActive && (
-                <motion.div
-                  layoutId="active-dot"
-                  className="absolute -bottom-1 w-1 h-1 rounded-full bg-[#2AABEE] shadow-[0_0_8px_#2AABEE]"
-                />
-              )}
             </div>
           </button>
         );
