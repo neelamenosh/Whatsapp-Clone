@@ -9,7 +9,7 @@ import * as supabaseUsers from '@/lib/supabase/users';
 import { ChatListItem } from './chat-list-item';
 import { NewChatModal } from './new-chat-modal';
 import { ProfileModal } from '@/components/profile/profile-modal';
-import { Search, Camera, MoreHorizontal, Plus, Users, Globe, Tag, Smartphone, Settings, Mic, X } from 'lucide-react';
+import { Search, Camera, MoreHorizontal, Plus, Users, Globe, Tag, Smartphone, Settings } from 'lucide-react';
 import type { Chat, User } from '@/lib/types';
 
 interface ChatListProps {
@@ -45,7 +45,7 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
   // Subscribe to all users' status changes via Supabase
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-
+    
     const unsubscribe = supabaseUsers.subscribeToAllUsersStatus((userId, status, lastSeen) => {
       // Update the status of participants in chats
       onChatsChange(chats.map(chat => {
@@ -81,8 +81,8 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
   }, [isMenuOpen]);
 
   const filteredChats = chats.filter((chat) => {
-    const name = chat.type === 'group'
-      ? 'Design Team'
+    const name = chat.type === 'group' 
+      ? 'Design Team' 
       : chat.participants[0].name;
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -123,19 +123,19 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
             <h1 className="text-2xl font-bold text-foreground">Chats</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button 
               type="button"
-              className="ios-button-icon text-muted-foreground hover:text-foreground"
+              className="glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
               aria-label="Camera"
             >
               <Camera className="h-5 w-5" />
             </button>
             <div className="relative" ref={menuRef}>
-              <button
+              <button 
                 type="button"
                 className={cn(
-                  "ios-button-icon text-muted-foreground hover:text-foreground",
-                  isMenuOpen && "text-foreground bg-black/5 dark:bg-white/10"
+                  "glass-button w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground",
+                  isMenuOpen && "text-foreground"
                 )}
                 aria-label="More options"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -143,59 +143,55 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
                 <MoreHorizontal className="h-5 w-5" />
               </button>
 
-              {/* iOS 26 Style Dropdown Menu */}
-              <div
-                className={cn(
-                  "absolute right-0 top-full mt-2 w-52 py-1 rounded-2xl z-50",
-                  "origin-top-right transition-all duration-200 ease-out",
-                  "ios-menu-card",
-                  isMenuOpen
-                    ? "opacity-100 scale-100 translate-y-0"
-                    : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
-                )}
-              >
-                {menuItems.map((item, index) => (
-                  <div key={item.label}>
-                    <button
-                      type="button"
-                      className="ios-menu-item w-full"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        if (item.label === 'Settings') onOpenSettings();
-                      }}
-                    >
-                      <item.icon className="h-5 w-5 text-muted-foreground" />
-                      <span>{item.label}</span>
-                    </button>
-                    {index < menuItems.length - 1 && <div className="ios-menu-separator" />}
-                  </div>
+              {/* Liquid Glass Dropdown Menu - Green Accent */}
+                <div
+                  className={cn(
+                    "absolute right-0 top-full mt-2 w-52 py-2 rounded-2xl z-50",
+                    "origin-top-right transition-all duration-300 ease-out",
+                    "bg-popover/80 backdrop-blur-2xl border border-primary/20 shadow-xl",
+                    isMenuOpen 
+                      ? "opacity-100 scale-100 translate-y-0" 
+                      : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                  )}
+                >
+                  {/* Top highlight for glass refraction */}
+                  <span 
+                    className="absolute top-2 left-4 right-4 h-px pointer-events-none bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+                  />
+                
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground/90",
+                      "hover:bg-green-50/60 dark:hover:bg-green-900/20 transition-colors duration-200",
+                      "active:bg-green-100/60 dark:active:bg-green-900/30"
+                    )}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (item.label === 'Settings') onOpenSettings();
+                    }}
+                  >
+                    <item.icon className="h-5 w-5 text-primary" />
+                    <span>{item.label}</span>
+                  </button>
                 ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* iOS 26 Search Bar */}
-        <div className="ios-search-bar">
-          <Search className="h-5 w-5" />
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full glass-input pl-12 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground"
           />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : (
-            <Mic className="h-5 w-5" />
-          )}
         </div>
       </div>
 
@@ -283,21 +279,21 @@ export function ChatList({ selectedChatId, onSelectChat, onOpenSettings, chats, 
         aria-label="New chat"
       >
         {/* Refraction highlight - top left */}
-        <span
+        <span 
           className="absolute top-1.5 left-2 w-4 h-2 rounded-full opacity-90 pointer-events-none"
           style={{
             background: 'linear-gradient(135deg, rgba(187,247,208,0.9) 0%, rgba(134,239,172,0) 100%)',
           }}
         />
         {/* Secondary highlight - bottom curve */}
-        <span
+        <span 
           className="absolute bottom-2 right-2 w-6 h-3 rounded-full opacity-40 pointer-events-none"
           style={{
             background: 'radial-gradient(ellipse at center, rgba(187,247,208,0.6) 0%, transparent 70%)',
           }}
         />
         {/* Caustic light effect */}
-        <span
+        <span 
           className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
           style={{
             background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35) 0%, transparent 50%)',
